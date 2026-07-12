@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+@theme {
+  --color-artesa-50: #faf6f2;
+  --color-artesa-500: #b0713f;
+  --color-artesa-700: #7c4a24;
+  --color-artesa-900: #4a2b13;
+}
+
+body {
+  @apply bg-artesa-50 text-artesa-900 antialiased;
+}

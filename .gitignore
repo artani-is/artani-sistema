@@ -1,0 +1,37 @@
+# Dependencias
+node_modules/
+.pnpm-store/
+
+# Variables de entorno (secretos)
+.env
+.env.*
+!.env.example
+
+# Builds y Compilación
+dist/
+backend/dist/
+frontend/dist/
+
+# Cliente generado por Prisma
+backend/src/generated/
+
+# Cachés de TypeScript y Linters
+*.tsbuildinfo
+.eslintcache
+
+# Logs, Tests y Sistema 
+*.log
+npm-debug.log*
+pnpm-debug.log*
+coverage/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores y Entornos Locales
+.vscode/
+.idea/
+nbproject/private/
+*.swp
+*.swo
+*~
