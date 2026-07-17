@@ -7,12 +7,244 @@ datasource db {
   provider = "postgresql"
 }
 
+enum EstadoArtesania {
+  DISPONIBLE
+  EN_CONSIGNACION
+  VENDIDA
+
+  @@map("estado_artesania")
+}
+
+enum UnidadMedida {
+  KG
+  GRAMO
+  METRO
+  CENTIMETRO
+  LITRO
+  MILILITRO
+  PIEZA
+
+  @@map("unidad_medida_tipo")
+}
+
+// SPRINT 1 acceso
+
 model Artesano {
-  id           Int      @id @default(autoincrement())
-  nombre       String
-  correo       String   @unique
-  passwordHash String
-  creadoEn     DateTime @default(now())
+  idArtesano      String  @id @default(dbgenerated("gen_random_uuid()")) @map("id_artesano") @db.Uuid
+  curp            String  @unique @db.VarChar(18)
+  nombres         String  @db.VarChar(100)
+  apellidoPaterno String  @map("apellido_paterno") @db.VarChar(60)
+  apellidoMaterno String? @map("apellido_materno") @db.VarChar(60)
+  correo          String  @unique @db.Citext
+  contrasenaHash  String  @map("contrasena_hash") @db.VarChar(255)
+  telefono        String? @db.VarChar(20)
+  nombreTaller    String? @map("nombre_taller") @db.VarChar(150)
+
+  intentosAcceso IntentoAcceso[]
+  compras        Compra[]
+  artesanias     Artesania[]
 
   @@map("artesano")
+}
+
+/// intentos de login
+model IntentoAcceso {
+  idIntento  String   @id @default(dbgenerated("gen_random_uuid()")) @map("id_intento") @db.Uuid
+  fechaHora  DateTime @default(now()) @map("fecha_hora") @db.Timestamptz(6)
+  exitoso    Boolean
+  idArtesano String   @map("id_artesano") @db.Uuid
+  artesano   Artesano @relation(fields: [idArtesano], references: [idArtesano], onDelete: Cascade)
+
+  @@index([idArtesano, fechaHora])
+  @@map("intento_acceso")
+}
+
+// SPRINT 1 catálogos maestros
+
+model TipoMaterial {
+  idTipoMaterial String @id @default(dbgenerated("gen_random_uuid()")) @map("id_tipo_material") @db.Uuid
+  nombre         String @unique @db.VarChar(100)
+
+  materiasPrimas MateriaPrima[]
+
+  @@map("tipo_material")
+}
+
+model TecnicaArtesanal {
+  idTecnica   String  @id @default(dbgenerated("gen_random_uuid()")) @map("id_tecnica") @db.Uuid
+  nombre      String  @unique @db.VarChar(100)
+  descripcion String? @db.Text
+
+  artesanias Artesania[]
+
+  @@map("tecnica_artesanal")
+}
+
+model CategoriaPieza {
+  idCategoria String @id @default(dbgenerated("gen_random_uuid()")) @map("id_categoria") @db.Uuid
+  nombre      String @unique @db.VarChar(100)
+
+  artesanias Artesania[]
+
+  @@map("categoria_pieza")
+}
+
+/// solo nombre es obligatorio
+model Galeria {
+  idGaleria      String  @id @default(dbgenerated("gen_random_uuid()")) @map("id_galeria") @db.Uuid
+  nombre         String  @db.VarChar(150)
+  nombreContacto String? @map("nombre_contacto") @db.VarChar(100)
+  telefono       String? @db.VarChar(20)
+  correo         String? @db.Citext
+  calle          String? @db.VarChar(100)
+  numero         String? @db.VarChar(10)
+  colonia        String? @db.VarChar(100)
+  codigoPostal   String? @map("codigo_postal") @db.VarChar(10)
+  ciudad         String? @db.VarChar(100)
+  estado         String? @db.VarChar(100)
+  pais           String  @default("Mexico") @db.VarChar(60)
+
+  @@map("galeria")
+}
+
+model Proveedor {
+  idProveedor String  @id @default(dbgenerated("gen_random_uuid()")) @map("id_proveedor") @db.Uuid
+  nombre      String  @db.VarChar(150)
+  telefono    String? @db.VarChar(20)
+  correo      String? @db.Citext
+  ciudad      String? @db.VarChar(100)
+  estado      String? @db.VarChar(100)
+
+  compras Compra[]
+
+  @@map("proveedor")
+}
+
+// SPRINT 1 materia prima y compras
+
+model MateriaPrima {
+  idMateria      String       @id @default(dbgenerated("gen_random_uuid()")) @map("id_materia") @db.Uuid
+  nombre         String       @db.VarChar(150)
+  unidadMedida   UnidadMedida @map("unidad_medida")
+  idTipoMaterial String       @map("id_tipo_material") @db.Uuid
+  tipoMaterial   TipoMaterial @relation(fields: [idTipoMaterial], references: [idTipoMaterial], onDelete: Restrict)
+
+  detallesCompra DetalleCompra[]
+  insumos        InsumoArtesania[]
+
+  @@index([idTipoMaterial])
+  @@map("materia_prima")
+}
+
+model Compra {
+  idCompra    String    @id @default(dbgenerated("gen_random_uuid()")) @map("id_compra") @db.Uuid
+  fecha       DateTime  @default(dbgenerated("CURRENT_DATE")) @db.Date
+  folioNota   String?   @map("folio_nota") @db.VarChar(50)
+  idProveedor String    @map("id_proveedor") @db.Uuid
+  proveedor   Proveedor @relation(fields: [idProveedor], references: [idProveedor], onDelete: Restrict)
+  idArtesano  String    @map("id_artesano") @db.Uuid
+  artesano    Artesano  @relation(fields: [idArtesano], references: [idArtesano], onDelete: Restrict)
+
+  detalles DetalleCompra[]
+
+  @@index([idProveedor])
+  @@index([idArtesano])
+  @@map("compra")
+}
+
+model DetalleCompra {
+  idDetalle     String       @id @default(dbgenerated("gen_random_uuid()")) @map("id_detalle") @db.Uuid
+  cantidad      Decimal      @db.Decimal(12, 3) // CHECK > 0 en la migración
+  costoUnitario Decimal      @map("costo_unitario") @db.Decimal(10, 2) // CHECK > 0 en la migración
+  idCompra      String       @map("id_compra") @db.Uuid
+  compra        Compra       @relation(fields: [idCompra], references: [idCompra], onDelete: Cascade)
+  idMateria     String       @map("id_materia") @db.Uuid
+  materiaPrima  MateriaPrima @relation(fields: [idMateria], references: [idMateria], onDelete: Restrict)
+
+  @@index([idCompra])
+  @@index([idMateria, idCompra])
+  @@map("detalle_compra")
+}
+
+// SPRINT 2 inventario
+
+model Artesania {
+  idArtesania     String           @id @default(dbgenerated("gen_random_uuid()")) @map("id_artesania") @db.Uuid
+  nombre          String           @db.VarChar(200)
+  descripcion     String?          @db.Text
+  estado          EstadoArtesania  @default(DISPONIBLE)
+  fechaRegistro   DateTime         @default(dbgenerated("CURRENT_DATE")) @map("fecha_registro") @db.Date
+  // Costeo (Sprint 3): CHECK >= 0 (horas/tarifa) y > 0 (precio) en la migración.
+  horasTrabajadas Decimal?         @map("horas_trabajadas") @db.Decimal(6, 2)
+  tarifaHora      Decimal?         @map("tarifa_hora") @db.Decimal(10, 2)
+  precioVenta     Decimal?         @map("precio_venta") @db.Decimal(10, 2)
+  idArtesano      String           @map("id_artesano") @db.Uuid
+  artesano        Artesano         @relation(fields: [idArtesano], references: [idArtesano], onDelete: Restrict)
+  idTecnica       String           @map("id_tecnica") @db.Uuid
+  tecnica         TecnicaArtesanal @relation(fields: [idTecnica], references: [idTecnica], onDelete: Restrict)
+  idCategoria     String           @map("id_categoria") @db.Uuid
+  categoria       CategoriaPieza   @relation(fields: [idCategoria], references: [idCategoria], onDelete: Restrict)
+
+  fotos       FotoArtesania[]
+  insumos     InsumoArtesania[]
+  certificado CertificadoQr?
+
+  @@index([idArtesano])
+  @@index([idTecnica])
+  @@index([idCategoria])
+  @@index([estado])
+  @@map("artesania")
+}
+
+model FotoArtesania {
+  idFoto      String    @id @default(dbgenerated("gen_random_uuid()")) @map("id_foto") @db.Uuid
+  rutaArchivo String    @map("ruta_archivo") @db.VarChar(300)
+  esPrincipal Boolean   @default(false) @map("es_principal")
+  fechaCarga  DateTime  @default(now()) @map("fecha_carga") @db.Timestamptz(6)
+  idArtesania String    @map("id_artesania") @db.Uuid
+  artesania   Artesania @relation(fields: [idArtesania], references: [idArtesania], onDelete: Cascade)
+
+  @@index([idArtesania])
+  @@map("foto_artesania")
+}
+
+// SPRINT 3 costeo (insumos por pieza)
+
+model InsumoArtesania {
+  idInsumoArt      String       @id @default(dbgenerated("gen_random_uuid()")) @map("id_insumo_art") @db.Uuid
+  cantidadUsada    Decimal      @map("cantidad_usada") @db.Decimal(12, 3) // CHECK > 0 
+  costoUnitarioUso Decimal      @map("costo_unitario_uso") @db.Decimal(10, 2) // CHECK > 0
+  idArtesania      String       @map("id_artesania") @db.Uuid
+  artesania        Artesania    @relation(fields: [idArtesania], references: [idArtesania], onDelete: Cascade)
+  idMateria        String       @map("id_materia") @db.Uuid
+  materiaPrima     MateriaPrima @relation(fields: [idMateria], references: [idMateria], onDelete: Restrict)
+
+  @@index([idArtesania])
+  @@index([idMateria])
+  @@map("insumo_artesania")
+}
+
+// SPRINT 4 certificación digital 
+
+model CertificadoQr {
+  idCertificado String    @id @default(dbgenerated("gen_random_uuid()")) @map("id_certificado") @db.Uuid
+  fechaEmision  DateTime  @default(now()) @map("fecha_emision") @db.Timestamptz(6)
+  rutaPdf       String    @map("ruta_pdf") @db.VarChar(300)
+  idArtesania   String    @unique @map("id_artesania") @db.Uuid
+  artesania     Artesania @relation(fields: [idArtesania], references: [idArtesania], onDelete: Restrict)
+
+  verificaciones VerificacionCertificado[]
+
+  @@map("certificado_qr")
+}
+
+/// verificaciones públicas
+model VerificacionCertificado {
+  idVerificacion String        @id @default(dbgenerated("gen_random_uuid()")) @map("id_verificacion") @db.Uuid
+  fechaHora      DateTime      @default(now()) @map("fecha_hora") @db.Timestamptz(6)
+  idCertificado  String        @map("id_certificado") @db.Uuid
+  certificado    CertificadoQr @relation(fields: [idCertificado], references: [idCertificado], onDelete: Cascade)
+
+  @@index([idCertificado, fechaHora])
+  @@map("verificacion_certificado")
 }
