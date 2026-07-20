@@ -1,12 +1,311 @@
 @import "tailwindcss";
 
-@theme {
-  --color-artesa-50: #faf6f2;
-  --color-artesa-500: #b0713f;
-  --color-artesa-700: #7c4a24;
-  --color-artesa-900: #4a2b13;
+/* ===========================================================================
+   Artani — Design tokens (portados del design system claude.ai/design)
+   Paleta tierra oaxaqueña: verde bosque, crema, ámbar y terracota.
+   =========================================================================== */
+:root {
+  /* Brand greens (forest / agave) */
+  --green-950: #16301f;
+  --green-900: #1f3d2e;
+  --green-800: #2a4c38;
+  --green-700: #2f5541;
+  --green-600: #3d6b52;
+  --green-500: #4e8267;
+  --green-300: #9dbaa6;
+  --green-200: #b9cdbf;
+  --green-100: #dce6de;
+  --green-50: #ecf2ed;
+
+  /* Amber / mustard (acento primario) */
+  --amber-700: #a66e12;
+  --amber-600: #c4841b;
+  --amber-500: #e0a32e;
+  --amber-400: #edb94f;
+  --amber-200: #f5d998;
+  --amber-100: #f8e8c4;
+
+  /* Terracotta (secundario, alertas, banda textil) */
+  --terracotta-700: #8c3320;
+  --terracotta-600: #a63d25;
+  --terracotta-500: #c0492f;
+  --terracotta-300: #db9784;
+  --terracotta-100: #f0d3ca;
+
+  /* Cremas neutras cálidas */
+  --cream-50: #fbf8f0;
+  --cream-100: #f4efe2;
+  --cream-200: #ebe4d3;
+  --cream-300: #ded5c0;
+  --cream-400: #cfc4aa;
+
+  /* Clay (grises cálidos) */
+  --clay-400: #a69e90;
+  --clay-500: #8a8378;
+  --clay-600: #6e675b;
+  --clay-700: #524c42;
+
+  --white: #ffffff;
+
+  /* Aliases semánticos */
+  --color-bg: var(--cream-100);
+  --color-surface: var(--cream-50);
+  --text-primary: var(--green-900);
+  --text-secondary: var(--clay-600);
+  --text-muted: var(--clay-500);
+  --text-on-dark: var(--cream-100);
+  --text-on-dark-muted: #bfd0c4;
+
+  --status-available: var(--green-600);
+  --status-available-bg: var(--green-50);
+  --status-sold: var(--clay-600);
+  --status-sold-bg: var(--cream-200);
+  --status-consignment: var(--amber-700);
+  --status-consignment-bg: var(--amber-100);
+
+  /* Tipografía */
+  --font-serif: 'Spectral', 'Georgia', 'Times New Roman', serif;
+  --font-sans: 'Mulish', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', 'Consolas', monospace;
+  --text-display: 56px;
+  --text-h1: 38px;
+  --text-h2: 30px;
+  --text-h3: 23px;
+  --text-h4: 19px;
+  --text-body-lg: 19px;
+  --text-body: 17px;
+  --text-sm: 15px;
+  --text-xs: 13px;
+  --text-label: 14px;
+  --tracking-caps: 0.16em;
+  --tracking-wide: 0.04em;
+
+  /* Espaciado y layout */
+  --sidebar-width: 264px;
+  --topbar-height: 72px;
+  --page-pad: 40px;
+  --control-height-sm: 40px;
+  --control-height: 52px;
+  --control-height-lg: 60px;
+  --field-pad-x: 18px;
+
+  /* Efectos */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+  --border-width: 1.5px;
+  --shadow-xs: 0 1px 2px rgba(22, 48, 31, 0.06);
+  --shadow-sm: 0 2px 6px rgba(22, 48, 31, 0.08);
+  --shadow-md: 0 6px 18px rgba(22, 48, 31, 0.1);
+  --shadow-lg: 0 14px 36px rgba(22, 48, 31, 0.14);
+  --shadow-focus: 0 0 0 3px rgba(224, 163, 46, 0.35);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
 }
 
 body {
-  @apply bg-artesa-50 text-artesa-900 antialiased;
+  background: var(--color-bg);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===========================================================================
+   Clases de componentes del design system
+   =========================================================================== */
+
+.font-serif-artani {
+  font-family: var(--font-serif);
+}
+
+/* --- Botones --- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: var(--control-height);
+  padding: 0 24px;
+  font: 700 var(--text-body) / 1 var(--font-sans);
+  letter-spacing: 0.01em;
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition:
+    background var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast);
+}
+.btn:disabled {
+  background: var(--cream-300);
+  border-color: var(--cream-300);
+  cursor: not-allowed;
+  opacity: 0.7;
+  color: var(--clay-600);
+}
+.btn:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+.btn-sm {
+  height: var(--control-height-sm);
+  font-size: var(--text-sm);
+  padding: 0 18px;
+}
+.btn-lg {
+  height: var(--control-height-lg);
+  font-size: var(--text-body-lg);
+  padding: 0 32px;
+}
+.btn-block {
+  display: flex;
+  width: 100%;
+}
+.btn-primary {
+  background: var(--green-700);
+  color: var(--cream-50);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--green-800);
+}
+.btn-accent {
+  background: var(--amber-500);
+  color: var(--green-950);
+}
+.btn-accent:hover:not(:disabled) {
+  background: var(--amber-600);
+}
+.btn-secondary {
+  background: transparent;
+  color: var(--green-800);
+  border-color: var(--green-700);
+  box-shadow: none;
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--green-50);
+  border-color: var(--green-800);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--green-800);
+  box-shadow: none;
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--cream-200);
+}
+.btn-danger {
+  background: var(--terracotta-500);
+  color: var(--cream-50);
+}
+.btn-danger:hover:not(:disabled) {
+  background: var(--terracotta-600);
+}
+
+/* --- Campos de formulario --- */
+.field-label {
+  font: 700 var(--text-label) / 1.2 var(--font-sans);
+  color: var(--green-900);
+  letter-spacing: 0.01em;
+}
+.field-required {
+  color: var(--terracotta-500);
+}
+.field-input {
+  width: 100%;
+  height: var(--control-height);
+  padding: 0 var(--field-pad-x);
+  font: 500 var(--text-body) / 1 var(--font-sans);
+  color: var(--green-900);
+  background: var(--cream-50);
+  border: var(--border-width) solid var(--cream-400);
+  border-radius: var(--radius-md);
+  outline: none;
+  transition:
+    border-color var(--duration-fast),
+    box-shadow var(--duration-fast);
+}
+.field-input::placeholder {
+  color: var(--clay-500);
+}
+.field-input:focus {
+  border-color: var(--green-700);
+  box-shadow: var(--shadow-focus);
+}
+.field-input:disabled {
+  background: var(--cream-200);
+  cursor: not-allowed;
+}
+.field-input.field-invalid {
+  border-color: var(--terracotta-500);
+}
+textarea.field-input {
+  height: auto;
+  padding: 12px var(--field-pad-x);
+  line-height: 1.5;
+}
+select.field-input {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 44px;
+  cursor: pointer;
+}
+select.field-input.field-empty {
+  color: var(--clay-500);
+}
+.field-help {
+  font: 400 var(--text-sm) / 1.3 var(--font-sans);
+  color: var(--clay-500);
+}
+.field-error {
+  font: 500 var(--text-sm) / 1.3 var(--font-sans);
+  color: var(--terracotta-600);
+}
+
+/* --- Tarjetas --- */
+.card {
+  background: var(--cream-50);
+  border: var(--border-width) solid var(--cream-300);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+}
+.card-padded {
+  padding: 24px;
+}
+.card-hover {
+  transition:
+    box-shadow var(--duration-base),
+    transform var(--duration-base);
+}
+.card-hover:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+/* --- Enlaces --- */
+.link-artani {
+  font-weight: 700;
+  color: var(--green-700);
+  text-decoration: none;
+}
+.link-artani:hover {
+  color: var(--amber-600);
+}
+
+/* --- Scrollbars sobrios en el área de trabajo --- */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--cream-400);
+  border-radius: var(--radius-pill);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
 }
