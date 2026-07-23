@@ -147,4 +147,94 @@ export interface Artesania {
   tecnica?: TecnicaArtesanal
   categoria?: CategoriaPieza
   fotos: FotoArtesania[]
+  insumos?: InsumoArtesania[]
+  certificado?: CertificadoQr | null
+  venta?: Venta | null
+  /** Solo la consignación ACTIVA (si existe) viene incluida desde la API. */
+  consignaciones?: Consignacion[]
+}
+
+// Sprint 3 — costeo
+
+export interface InsumoArtesania {
+  idInsumoArt: string
+  cantidadUsada: string
+  costoUnitarioUso: string
+  idArtesania: string
+  idMateria: string
+  materiaPrima?: MateriaPrima
+}
+
+// Sprint 4 — certificación digital
+
+export interface VerificacionCertificado {
+  idVerificacion: string
+  fechaHora: string
+  idCertificado: string
+}
+
+export interface CertificadoQr {
+  idCertificado: string
+  fechaEmision: string
+  rutaPdf: string
+  idArtesania: string
+  rutaQr?: string
+  urlVerificacion?: string
+  verificaciones?: VerificacionCertificado[]
+  _count?: { verificaciones: number }
+}
+
+/** Derivados del certificado (la PK es el token público del QR). */
+export function rutaQrDe(certificado: CertificadoQr): string {
+  return certificado.rutaQr ?? `/uploads/certificados/${certificado.idCertificado}-qr.png`
+}
+
+export interface VerificacionPublica {
+  idCertificado: string
+  fechaEmision: string
+  pieza: {
+    nombre: string
+    descripcion: string | null
+    tecnica: string
+    categoria: string
+    foto: string | null
+  }
+  artesano: {
+    nombre: string
+    taller: string | null
+  }
+}
+
+// Sprint 5 — consignación y ventas
+
+export const ESTADOS_CONSIGNACION = ['ACTIVA', 'DEVUELTA', 'VENDIDA'] as const
+export type EstadoConsignacion = (typeof ESTADOS_CONSIGNACION)[number]
+
+export const ETIQUETA_ESTADO_CONSIGNACION: Record<EstadoConsignacion, string> = {
+  ACTIVA: 'Activa',
+  DEVUELTA: 'Devuelta',
+  VENDIDA: 'Vendida',
+}
+
+export interface Consignacion {
+  idConsignacion: string
+  fechaSalida: string
+  fechaRetorno: string | null
+  estado: EstadoConsignacion
+  porcentajeComision: string | null
+  idArtesania: string
+  idGaleria: string
+  galeria?: Pick<Galeria, 'idGaleria' | 'nombre'>
+  artesania?: Pick<Artesania, 'idArtesania' | 'nombre' | 'estado'>
+}
+
+export interface Venta {
+  idVenta: string
+  fechaVenta: string
+  montoCobrado: string
+  idArtesania: string
+  idConsignacion: string | null
+  canal?: 'DIRECTA' | 'CONSIGNACION'
+  artesania?: Pick<Artesania, 'idArtesania' | 'nombre'>
+  consignacion?: Consignacion | null
 }

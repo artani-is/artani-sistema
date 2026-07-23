@@ -11,6 +11,13 @@ const router = createRouter({
       meta: { publica: true },
     },
     {
+      // Ficha pública del certificado (HU-12): sin sesión, fuera del layout
+      path: '/verificar/:id',
+      name: 'verificacion-publica',
+      component: () => import('@/views/VerificacionPublicaView.vue'),
+      meta: { publica: true },
+    },
+    {
       path: '/',
       component: () => import('@/components/AppLayout.vue'),
       children: [
@@ -44,6 +51,16 @@ const router = createRouter({
           path: 'artesanias/:id/editar',
           name: 'artesania-editar',
           component: () => import('@/views/ArtesaniaFormView.vue'),
+        },
+        {
+          path: 'artesanias/:id/costeo',
+          name: 'artesania-costeo',
+          component: () => import('@/views/CosteoView.vue'),
+        },
+        {
+          path: 'certificados',
+          name: 'certificados',
+          component: () => import('@/views/CertificadosView.vue'),
         },
       ],
     },
