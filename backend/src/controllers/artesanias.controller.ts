@@ -2,13 +2,20 @@ import type { NextFunction, Request, Response } from "express";
 import { prisma } from "../lib/prisma.js";
 import { paramDe, textoDe, uuidDe } from "../lib/validate.js";
 import { ApiError } from "../middlewares/error.js";
-import { EstadoArtesania } from "../generated/prisma/enums.js";
+import { EstadoArtesania, EstadoConsignacion } from "../generated/prisma/enums.js";
 import type { Prisma } from "../generated/prisma/client.js";
 
 const includeArtesania = {
   tecnica: true,
   categoria: true,
   fotos: { orderBy: { fechaCarga: "asc" } },
+  insumos: { include: { materiaPrima: true } },
+  certificado: { include: { _count: { select: { verificaciones: true } } } },
+  venta: true,
+  consignaciones: {
+    where: { estado: EstadoConsignacion.ACTIVA },
+    include: { galeria: { select: { idGaleria: true, nombre: true } } },
+  },
 } satisfies Prisma.ArtesaniaInclude;
 
 function parseArtesania(body: Record<string, unknown>) {
