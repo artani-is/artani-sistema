@@ -15,6 +15,14 @@ enum EstadoArtesania {
   @@map("estado_artesania")
 }
 
+enum EstadoConsignacion {
+  ACTIVA
+  DEVUELTA
+  VENDIDA
+
+  @@map("estado_consignacion")
+}
+
 enum UnidadMedida {
   KG
   GRAMO
@@ -104,6 +112,8 @@ model Galeria {
   estado         String? @db.VarChar(100)
   pais           String  @default("Mexico") @db.VarChar(60)
 
+  consignaciones Consignacion[]
+
   @@map("galeria")
 }
 
@@ -185,9 +195,11 @@ model Artesania {
   idCategoria     String           @map("id_categoria") @db.Uuid
   categoria       CategoriaPieza   @relation(fields: [idCategoria], references: [idCategoria], onDelete: Restrict)
 
-  fotos       FotoArtesania[]
-  insumos     InsumoArtesania[]
-  certificado CertificadoQr?
+  fotos          FotoArtesania[]
+  insumos        InsumoArtesania[]
+  certificado    CertificadoQr?
+  consignaciones Consignacion[]
+  venta          Venta?
 
   @@index([idArtesano])
   @@index([idTecnica])
@@ -247,4 +259,38 @@ model VerificacionCertificado {
 
   @@index([idCertificado, fechaHora])
   @@map("verificacion_certificado")
+}
+
+// SPRINT 5 consignación y ventas
+
+model Consignacion {
+  idConsignacion     String             @id @default(dbgenerated("gen_random_uuid()")) @map("id_consignacion") @db.Uuid
+  fechaSalida        DateTime           @default(dbgenerated("CURRENT_DATE")) @map("fecha_salida") @db.Date
+  fechaRetorno       DateTime?          @map("fecha_retorno") @db.Date // CHECK >= fecha_salida en la migración
+  estado             EstadoConsignacion @default(ACTIVA) @map("estado_consig")
+  porcentajeComision Decimal?           @map("porcentaje_comision") @db.Decimal(5, 2) // CHECK 0-100 en la migración
+  idArtesania        String             @map("id_artesania") @db.Uuid
+  artesania          Artesania          @relation(fields: [idArtesania], references: [idArtesania], onDelete: Restrict)
+  idGaleria          String             @map("id_galeria") @db.Uuid
+  galeria            Galeria            @relation(fields: [idGaleria], references: [idGaleria], onDelete: Restrict)
+
+  venta Venta?
+
+  @@index([idArtesania])
+  @@index([idGaleria])
+  @@index([estado])
+  @@map("consignacion")
+}
+
+/// el canal de venta se deriva: idConsignacion null => directa
+model Venta {
+  idVenta        String        @id @default(dbgenerated("gen_random_uuid()")) @map("id_venta") @db.Uuid
+  fechaVenta     DateTime      @default(dbgenerated("CURRENT_DATE")) @map("fecha_venta") @db.Date
+  montoCobrado   Decimal       @map("monto_cobrado") @db.Decimal(10, 2) // CHECK > 0 en la migración
+  idArtesania    String        @unique @map("id_artesania") @db.Uuid
+  artesania      Artesania     @relation(fields: [idArtesania], references: [idArtesania], onDelete: Restrict)
+  idConsignacion String?       @unique @map("id_consignacion") @db.Uuid
+  consignacion   Consignacion? @relation(fields: [idConsignacion], references: [idConsignacion], onDelete: Restrict)
+
+  @@map("venta")
 }
