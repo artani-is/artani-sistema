@@ -9,9 +9,20 @@ function conCanal<T extends { idConsignacion: string | null }>(venta: T) {
   return { ...venta, canal: venta.idConsignacion ? "CONSIGNACION" : "DIRECTA" };
 }
 
-export async function listar(_req: Request, res: Response, next: NextFunction) {
+export async function listar(req: Request, res: Response, next: NextFunction) {
   try {
+    // Filtros del reporte (HU-16): periodo y canal (derivado de id_consignacion)
+    const { inicio, fin, canal } = req.query;
+    const fechaVenta: { gte?: Date; lte?: Date } = {};
+    if (typeof inicio === "string" && inicio) fechaVenta.gte = new Date(inicio);
+    if (typeof fin === "string" && fin) fechaVenta.lte = new Date(fin);
+
     const ventas = await prisma.venta.findMany({
+      where: {
+        ...(fechaVenta.gte || fechaVenta.lte ? { fechaVenta } : {}),
+        ...(canal === "DIRECTA" ? { idConsignacion: null } : {}),
+        ...(canal === "CONSIGNACION" ? { idConsignacion: { not: null } } : {}),
+      },
       orderBy: { fechaVenta: "desc" },
       include: {
         artesania: { select: { idArtesania: true, nombre: true } },

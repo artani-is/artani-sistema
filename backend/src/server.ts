@@ -11,6 +11,7 @@ import { materiasPrimasRouter } from "./routes/materias-primas.routes.js";
 import { comprasRouter } from "./routes/compras.routes.js";
 import { artesaniasRouter } from "./routes/artesanias.routes.js";
 import { consignacionesRouter, ventasRouter } from "./routes/ventas.routes.js";
+import { reportesRouter } from "./routes/reportes.routes.js";
 import { publicoRouter } from "./routes/publico.routes.js";
 
 export function crearServidor() {
@@ -37,6 +38,7 @@ export function crearServidor() {
   app.use("/api/artesanias", requireAuth, artesaniasRouter);
   app.use("/api/ventas", requireAuth, ventasRouter);
   app.use("/api/consignaciones", requireAuth, consignacionesRouter);
+  app.use("/api/reportes", requireAuth, reportesRouter);
   // Verificación pública de certificados: sin autenticación (HU-12)
   app.use("/api/publico", publicoRouter);
 
