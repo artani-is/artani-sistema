@@ -51,6 +51,7 @@ model Artesano {
   intentosAcceso IntentoAcceso[]
   compras        Compra[]
   artesanias     Artesania[]
+  reportes       ReporteVentas[]
 
   @@map("artesano")
 }
@@ -293,4 +294,20 @@ model Venta {
   consignacion   Consignacion? @relation(fields: [idConsignacion], references: [idConsignacion], onDelete: Restrict)
 
   @@map("venta")
+}
+
+// SPRINT 6 reportes
+
+/// bitácora de generación; los totales son derivados (agregados sobre VENTA)
+model ReporteVentas {
+  idReporte       String   @id @default(dbgenerated("gen_random_uuid()")) @map("id_reporte") @db.Uuid
+  fechaGeneracion DateTime @default(now()) @map("fecha_generacion") @db.Timestamptz(6)
+  fechaInicio     DateTime @map("fecha_inicio") @db.Date
+  fechaFin        DateTime @map("fecha_fin") @db.Date // CHECK >= fecha_inicio en la migración
+  rutaExportacion String?  @map("ruta_exportacion") @db.VarChar(300)
+  idArtesano      String   @map("id_artesano") @db.Uuid
+  artesano        Artesano @relation(fields: [idArtesano], references: [idArtesano], onDelete: Cascade)
+
+  @@index([idArtesano, fechaGeneracion])
+  @@map("reporte_ventas")
 }
