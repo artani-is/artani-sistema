@@ -238,3 +238,17 @@ export interface Venta {
   artesania?: Pick<Artesania, 'idArtesania' | 'nombre'>
   consignacion?: Consignacion | null
 }
+
+// Sprint 6 — reportes
+
+/** Bitácora de generación; los totales son derivados (no se almacenan). */
+export interface ReporteVentas {
+  idReporte: string
+  fechaGeneracion: string
+  fechaInicio: string
+  fechaFin: string
+  rutaExportacion: string | null
+  idArtesano: string
+  totalVentas: number
+  totalPiezas: number
+}

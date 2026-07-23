@@ -1,7 +1,17 @@
 <script setup lang="ts">
 import { ref, type FunctionalComponent } from 'vue'
 import { RouterLink, RouterView, useRouter } from 'vue-router'
-import { Home, Package, QrCode, Receipt, LayoutList, LogOut, Menu } from '@lucide/vue'
+import {
+  ChartColumn,
+  Home,
+  Package,
+  QrCode,
+  Receipt,
+  LayoutList,
+  LogOut,
+  Menu,
+  Settings,
+} from '@lucide/vue'
 import AppLogo from '@/components/ui/AppLogo.vue'
 import { useAuthStore } from '@/stores/auth'
 
@@ -20,7 +30,9 @@ const enlaces: EnlaceMenu[] = [
   { etiqueta: 'Inventario', icono: Package, destino: { name: 'artesanias' } },
   { etiqueta: 'Materia prima', icono: Receipt, destino: { name: 'materia-prima' } },
   { etiqueta: 'Certificados', icono: QrCode, destino: { name: 'certificados' } },
+  { etiqueta: 'Reportes', icono: ChartColumn, destino: { name: 'reportes' } },
   { etiqueta: 'Catálogos', icono: LayoutList, destino: { name: 'catalogos' } },
+  { etiqueta: 'Ajustes', icono: Settings, destino: { name: 'ajustes' } },
 ]
 
 function salir(): void {
