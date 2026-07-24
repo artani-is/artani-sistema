@@ -49,7 +49,7 @@ export async function registrar(req: Request, res: Response, next: NextFunction)
       where: { idArtesania },
       include: { consignaciones: { where: { estado: EstadoConsignacion.ACTIVA } } },
     });
-    if (!pieza) {
+    if (!pieza || pieza.eliminado) {
       throw new ApiError(404, "La artesanía no existe");
     }
     if (pieza.estado === EstadoArtesania.VENDIDA) {
@@ -108,7 +108,7 @@ export async function enviarConsignacion(req: Request, res: Response, next: Next
     }
 
     const pieza = await prisma.artesania.findUnique({ where: { idArtesania } });
-    if (!pieza) {
+    if (!pieza || pieza.eliminado) {
       throw new ApiError(404, "La artesanía no existe");
     }
     if (pieza.estado !== EstadoArtesania.DISPONIBLE) {
