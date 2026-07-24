@@ -10,12 +10,17 @@ import TextField from '@/components/ui/TextField.vue'
 import SelectField, { type OpcionSelect } from '@/components/ui/SelectField.vue'
 import { useArtesaniasStore } from '@/stores/artesanias'
 import { useCatalogosStore } from '@/stores/catalogos'
+import { useSnackbarStore } from '@/stores/snackbar'
 import { ApiError } from '@/lib/api'
 
 const route = useRoute()
 const router = useRouter()
 const store = useArtesaniasStore()
 const catalogos = useCatalogosStore()
+const snackbar = useSnackbarStore()
+
+/** CAM-014: estado previo de la ficha para poder deshacer una edición. */
+let fichaPrevia: { nombre: string; descripcion: string | null; idTecnica: string; idCategoria: string } | null = null
 
 const idArtesania = computed(() =>
   typeof route.params.id === 'string' ? route.params.id : null,
@@ -51,6 +56,12 @@ onMounted(async () => {
         idTecnica: pieza.idTecnica,
         idCategoria: pieza.idCategoria,
       })
+      fichaPrevia = {
+        nombre: pieza.nombre,
+        descripcion: pieza.descripcion,
+        idTecnica: pieza.idTecnica,
+        idCategoria: pieza.idCategoria,
+      }
     } catch (err) {
       error.value = err instanceof ApiError ? err.message : 'No se pudo cargar la pieza'
     } finally {
@@ -82,6 +93,16 @@ async function guardar(): Promise<void> {
 
     if (!idArtesania.value && archivos.value.length > 0) {
       await store.subirFotos(pieza.idArtesania, archivos.value)
+    }
+    // CAM-014: confirmación visual; la edición puede deshacerse
+    if (idArtesania.value && fichaPrevia) {
+      const id = idArtesania.value
+      const anterior = fichaPrevia
+      snackbar.exito(`Ficha actualizada: ${pieza.nombre}.`, async () => {
+        await store.actualizar(id, anterior)
+      })
+    } else {
+      snackbar.exito(`Pieza registrada: ${pieza.nombre}.`)
     }
     router.push({ name: 'artesania-detalle', params: { id: pieza.idArtesania } })
   } catch (err) {

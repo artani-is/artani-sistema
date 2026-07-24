@@ -14,12 +14,6 @@ export interface Sesion {
   artesano: Artesano
 }
 
-export interface TipoMaterial {
-  idTipoMaterial: string
-  nombre: string
-  _count?: { materiasPrimas: number }
-}
-
 export interface TecnicaArtesanal {
   idTecnica: string
   nombre: string
@@ -48,11 +42,17 @@ export interface Galeria {
   pais: string
 }
 
+/** CAM-015: domicilio completo; todos los campos salvo el nombre son opcionales. */
 export interface Proveedor {
   idProveedor: string
   nombre: string
   telefono: string | null
   correo: string | null
+  calle: string | null
+  numero: string | null
+  numeroInterior: string | null
+  colonia: string | null
+  codigoPostal: string | null
   ciudad: string | null
   estado: string | null
   _count?: { compras: number }
@@ -79,12 +79,22 @@ export const ETIQUETA_UNIDAD: Record<UnidadMedida, string> = {
   PIEZA: 'Piezas (pza)',
 }
 
+/** CAM-011: etiqueta abreviada de la unidad para tablas y la calculadora de costeo. */
+export const UNIDAD_CORTA: Record<UnidadMedida, string> = {
+  KG: 'kg',
+  GRAMO: 'g',
+  METRO: 'm',
+  CENTIMETRO: 'cm',
+  LITRO: 'l',
+  MILILITRO: 'ml',
+  PIEZA: 'pieza',
+}
+
+/** CAM-009: el insumo se identifica solo por nombre y unidad de medida. */
 export interface MateriaPrima {
   idMateria: string
   nombre: string
   unidadMedida: UnidadMedida
-  idTipoMaterial: string
-  tipoMaterial?: TipoMaterial
   _count?: { detallesCompra: number }
 }
 
@@ -192,6 +202,8 @@ export function rutaQrDe(certificado: CertificadoQr): string {
 export interface VerificacionPublica {
   idCertificado: string
   fechaEmision: string
+  /** CAM-013: BAJA = pieza auténtica pero dada de baja del registro del taller. */
+  estado: 'VALIDO' | 'BAJA'
   pieza: {
     nombre: string
     descripcion: string | null

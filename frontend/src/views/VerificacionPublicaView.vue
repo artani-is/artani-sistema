@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { AlertTriangle, Check } from '@lucide/vue'
+import { AlertTriangle, Archive, Check } from '@lucide/vue'
 import AppLogo from '@/components/ui/AppLogo.vue'
 import BaseBadge from '@/components/ui/BaseBadge.vue'
 import PhotoSlot from '@/components/ui/PhotoSlot.vue'
@@ -12,6 +12,9 @@ import type { VerificacionPublica } from '@/types'
 const route = useRoute()
 const cargando = ref(true)
 const certificado = ref<VerificacionPublica | null>(null)
+
+// CAM-013: la pieza dada de baja sigue siendo auténtica; solo cambia su situación
+const dadaDeBaja = computed(() => certificado.value?.estado === 'BAJA')
 
 onMounted(async () => {
   try {
@@ -42,7 +45,7 @@ function formatearFecha(iso: string): string {
     <main class="flex flex-1 items-start justify-center px-6 py-12">
       <p v-if="cargando" :style="{ color: 'var(--clay-500)' }">Verificando certificado…</p>
 
-      <!-- Certificado válido -->
+      <!-- Certificado encontrado: válido o pieza dada de baja (CAM-013) -->
       <div
         v-else-if="certificado"
         class="card w-full overflow-hidden"
@@ -51,23 +54,33 @@ function formatearFecha(iso: string): string {
         <div
           class="flex items-center gap-3.5"
           :style="{
-            background: 'var(--status-available-bg, var(--green-50))',
+            background: dadaDeBaja ? 'var(--amber-100)' : 'var(--status-available-bg, var(--green-50))',
             padding: '24px 32px',
             borderBottom: '1.5px solid var(--cream-300)',
           }"
         >
           <span
             class="inline-flex shrink-0 items-center justify-center rounded-full"
-            :style="{ width: '44px', height: '44px', background: 'var(--green-700)', color: 'var(--cream-50)' }"
+            :style="{
+              width: '44px',
+              height: '44px',
+              background: dadaDeBaja ? 'var(--amber-600)' : 'var(--green-700)',
+              color: 'var(--cream-50)',
+            }"
           >
-            <Check :size="24" />
+            <Archive v-if="dadaDeBaja" :size="22" />
+            <Check v-else :size="24" />
           </span>
           <div>
-            <div :style="{ font: '600 22px/1.1 var(--font-serif)', color: 'var(--green-900)' }">
-              Certificado válido
+            <div :style="{ font: '600 22px/1.1 var(--font-serif)', color: dadaDeBaja ? 'var(--amber-700)' : 'var(--green-900)' }">
+              {{ dadaDeBaja ? 'Pieza dada de baja' : 'Certificado válido' }}
             </div>
-            <div :style="{ font: '500 14px/1.2 var(--font-sans)', color: 'var(--green-700)' }">
-              Pieza auténtica registrada en Artani
+            <div :style="{ font: '500 14px/1.35 var(--font-sans)', color: dadaDeBaja ? 'var(--amber-700)' : 'var(--green-700)' }">
+              {{
+                dadaDeBaja
+                  ? 'El certificado es auténtico, pero la pieza fue dada de baja del registro del taller.'
+                  : 'Pieza auténtica registrada en Artani'
+              }}
             </div>
           </div>
         </div>
@@ -111,13 +124,16 @@ function formatearFecha(iso: string): string {
               <span class="valor">{{ formatearFecha(certificado.fechaEmision) }}</span>
             </div>
             <div>
-              <BaseBadge tone="available" size="sm">Autenticidad verificada</BaseBadge>
+              <BaseBadge v-if="dadaDeBaja" tone="neutral" size="sm">
+                Dada de baja del registro del taller
+              </BaseBadge>
+              <BaseBadge v-else tone="available" size="sm">Autenticidad verificada</BaseBadge>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Certificado inválido -->
+      <!-- Certificado inválido: reservado para códigos inexistentes o manipulados -->
       <div
         v-else
         class="card card-padded flex w-full flex-col items-center gap-4 text-center"
@@ -148,6 +164,7 @@ function formatearFecha(iso: string): string {
       </div>
     </main>
 
+    <!-- CAM-005: la franja decorativa cubre el ancho total en todas las resoluciones -->
     <TextileBand :height="10" :gap="4" />
     <footer
       class="text-center"

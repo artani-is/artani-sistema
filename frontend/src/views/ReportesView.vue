@@ -53,8 +53,9 @@ const opcionesCanal: OpcionSelect[] = [
 
 /** Rango de fechas del periodo elegido (mes concreto o año completo). */
 const periodo = computed(() => {
-  const a = Number(anio.value)
-  if (mes.value === 'ANIO') {
+  const a = Number(anio.value) || hoy.getFullYear()
+  // Sin mes elegido se asume el año completo (CAM-008: el selector permite limpiarse)
+  if (mes.value === 'ANIO' || !mes.value) {
     return { inicio: `${a}-01-01`, fin: `${a}-12-31` }
   }
   const m = Number(mes.value)

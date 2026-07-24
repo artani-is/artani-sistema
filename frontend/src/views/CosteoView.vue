@@ -9,19 +9,20 @@ import TextField from '@/components/ui/TextField.vue'
 import SelectField, { type OpcionSelect } from '@/components/ui/SelectField.vue'
 import { useArtesaniasStore } from '@/stores/artesanias'
 import { useMateriasPrimasStore } from '@/stores/materiasPrimas'
+import { useSnackbarStore } from '@/stores/snackbar'
 import { ApiError } from '@/lib/api'
-import { ETIQUETA_UNIDAD, type Artesania } from '@/types'
+import { UNIDAD_CORTA, type Artesania } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
 const store = useArtesaniasStore()
 const materiasStore = useMateriasPrimasStore()
+const snackbar = useSnackbarStore()
 
 const idArtesania = route.params.id as string
 const pieza = ref<Artesania | null>(null)
 const cargando = ref(true)
 const error = ref<string | null>(null)
-const exito = ref<string | null>(null)
 const guardando = ref(false)
 const asignando = ref(false)
 
@@ -41,16 +42,17 @@ const precioFinal = ref('')
 
 const bloqueada = computed(() => pieza.value?.estado === 'VENDIDA')
 
+// CAM-011: la unidad se presenta con su etiqueta abreviada (kg, g, m, cm, l, ml, pieza)
 const opcionesMateria = computed<OpcionSelect[]>(() =>
   materiasStore.materias.map((m) => ({
     value: m.idMateria,
-    label: `${m.nombre} (${ETIQUETA_UNIDAD[m.unidadMedida]})`,
+    label: `${m.nombre} (${UNIDAD_CORTA[m.unidadMedida]})`,
   })),
 )
 
 function unidadDe(idMateria: string): string {
   const materia = materiasStore.materias.find((m) => m.idMateria === idMateria)
-  return materia ? ETIQUETA_UNIDAD[materia.unidadMedida] : '—'
+  return materia ? UNIDAD_CORTA[materia.unidadMedida] : '—'
 }
 
 // Resumen del cálculo (HU-8): insumos + mano de obra, actualizado dinámicamente
@@ -122,9 +124,8 @@ function validarFilas(): boolean {
   return true
 }
 
-async function guardarCosteo(): Promise<boolean> {
+async function guardarCosteo(avisar = true): Promise<boolean> {
   error.value = null
-  exito.value = null
   if (!validarFilas()) return false
   guardando.value = true
   try {
@@ -140,7 +141,9 @@ async function guardarCosteo(): Promise<boolean> {
       horasTrabajadas: horas.value || '0',
       tarifaHora: tarifa.value || '0',
     })
-    exito.value = 'Costeo guardado correctamente.'
+    if (avisar) {
+      snackbar.exito(`Costeo guardado: ${pieza.value?.nombre ?? 'pieza'}.`)
+    }
     return true
   } catch (err) {
     error.value = err instanceof ApiError ? err.message : 'No se pudo guardar el costeo'
@@ -150,18 +153,18 @@ async function guardarCosteo(): Promise<boolean> {
   }
 }
 
-/** HU-9: el artesano fija el precio final (puede diferir del sugerido). */
+/** El artesano fija el precio final (puede diferir del sugerido). */
 async function asignarPrecioFinal(): Promise<void> {
   const precio = precioFinal.value || String(sugerido.value)
   if (!(Number(precio) > 0)) {
-    error.value = 'El precio de venta final debe ser un número positivo'
+    error.value = 'El precio final debe ser un número positivo'
     return
   }
   asignando.value = true
   try {
-    if (!(await guardarCosteo())) return
+    if (!(await guardarCosteo(false))) return
     await store.asignarPrecio(idArtesania, precio)
-    exito.value = `Precio de venta asignado: ${formatearMoneda(Number(precio))}.`
+    snackbar.exito(`Precio final asignado: ${formatearMoneda(Number(precio))}.`)
   } catch (err) {
     error.value = err instanceof ApiError ? err.message : 'No se pudo asignar el precio'
   } finally {
@@ -203,7 +206,6 @@ function formatearMoneda(valor: number): string {
       <div v-else class="grid grid-cols-1 items-start gap-7 xl:grid-cols-[1fr_360px]">
         <div class="card card-padded flex flex-col gap-6">
           <BaseAlert v-if="error" tone="error" @cerrar="error = null">{{ error }}</BaseAlert>
-          <BaseAlert v-if="exito" tone="success" @cerrar="exito = null">{{ exito }}</BaseAlert>
           <BaseAlert v-if="bloqueada" tone="warning" :closable="false">
             Pieza vendida: el costeo es de solo lectura.
           </BaseAlert>
@@ -357,15 +359,16 @@ function formatearMoneda(valor: number): string {
               {{ formatearMoneda(sugerido) }}
             </span>
           </div>
+          <!-- CAM-001 / CAM-003: etiqueta simplificada y sin referencias internas -->
           <TextField
             v-model="precioFinal"
-            label="Precio de venta final"
+            label="Precio final"
             type="number"
             min="0"
             step="any"
             :placeholder="String(sugerido)"
             :disabled="bloqueada"
-            help-text="Puedes ajustar el precio sugerido (HU-9)."
+            help-text="Puedes ajustar el precio sugerido."
           />
           <BaseButton
             v-if="!bloqueada"

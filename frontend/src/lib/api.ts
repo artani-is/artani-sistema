@@ -69,8 +69,12 @@ export const api = {
   patch<T>(ruta: string, datos: unknown = {}): Promise<T> {
     return ejecutar<T>(ruta, { method: 'PATCH', body: JSON.stringify(datos) })
   },
-  del(ruta: string): Promise<void> {
-    return ejecutar<void>(ruta, { method: 'DELETE' })
+  /** `datos` opcional: las eliminaciones con motivo obligatorio lo envían en el cuerpo. */
+  del(ruta: string, datos?: unknown): Promise<void> {
+    return ejecutar<void>(ruta, {
+      method: 'DELETE',
+      ...(datos !== undefined ? { body: JSON.stringify(datos) } : {}),
+    })
   },
   subirArchivos<T>(ruta: string, formulario: FormData): Promise<T> {
     return ejecutar<T>(ruta, { method: 'POST', body: formulario })
