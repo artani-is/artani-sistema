@@ -2,7 +2,8 @@ import { reactive, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { api } from '@/lib/api'
 
-export type CatalogoKey = 'tiposMaterial' | 'tecnicas' | 'categorias' | 'galerias'
+// CAM-009: el catálogo "Tipos de material" se eliminó del sistema
+export type CatalogoKey = 'tecnicas' | 'categorias' | 'galerias'
 
 export interface ElementoCatalogo {
   nombre: string
@@ -15,7 +16,6 @@ interface ConfigCatalogo {
 }
 
 export const CONFIG_CATALOGOS: Record<CatalogoKey, ConfigCatalogo> = {
-  tiposMaterial: { endpoint: '/catalogos/tipos-material', idCampo: 'idTipoMaterial' },
   tecnicas: { endpoint: '/catalogos/tecnicas', idCampo: 'idTecnica' },
   categorias: { endpoint: '/catalogos/categorias', idCampo: 'idCategoria' },
   galerias: { endpoint: '/catalogos/galerias', idCampo: 'idGaleria' },
@@ -27,7 +27,6 @@ export function idDe(catalogo: CatalogoKey, elemento: ElementoCatalogo): string 
 
 export const useCatalogosStore = defineStore('catalogos', () => {
   const listas = reactive<Record<CatalogoKey, ElementoCatalogo[]>>({
-    tiposMaterial: [],
     tecnicas: [],
     categorias: [],
     galerias: [],
@@ -47,9 +46,13 @@ export const useCatalogosStore = defineStore('catalogos', () => {
     await Promise.all((Object.keys(CONFIG_CATALOGOS) as CatalogoKey[]).map(cargar))
   }
 
-  async function crear(catalogo: CatalogoKey, datos: Record<string, unknown>): Promise<void> {
-    await api.post(CONFIG_CATALOGOS[catalogo].endpoint, datos)
+  async function crear(
+    catalogo: CatalogoKey,
+    datos: Record<string, unknown>,
+  ): Promise<ElementoCatalogo> {
+    const creado = await api.post<ElementoCatalogo>(CONFIG_CATALOGOS[catalogo].endpoint, datos)
     await cargar(catalogo)
+    return creado
   }
 
   async function actualizar(

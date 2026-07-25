@@ -6,10 +6,12 @@ import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseAlert from '@/components/ui/BaseAlert.vue'
 import TextField from '@/components/ui/TextField.vue'
 import { useAuthStore } from '@/stores/auth'
+import { useSnackbarStore } from '@/stores/snackbar'
 import { api, ApiError } from '@/lib/api'
 import type { Artesano } from '@/types'
 
 const auth = useAuthStore()
+const snackbar = useSnackbarStore()
 
 const nombreTaller = ref('')
 const nombres = ref('')
@@ -21,7 +23,6 @@ const correo = ref('')
 const cargando = ref(true)
 const guardando = ref(false)
 const error = ref<string | null>(null)
-const exito = ref<string | null>(null)
 
 onMounted(async () => {
   try {
@@ -43,7 +44,6 @@ onMounted(async () => {
 /** HU-17: los cambios se reflejan de inmediato, sin cerrar sesión. */
 async function guardar(): Promise<void> {
   error.value = null
-  exito.value = null
   if (!nombres.value.trim() || !apellidoPaterno.value.trim()) {
     error.value = 'El nombre y el apellido paterno del artesano responsable son obligatorios'
     return
@@ -57,7 +57,8 @@ async function guardar(): Promise<void> {
       telefono: telefono.value.trim() || null,
       nombreTaller: nombreTaller.value.trim() || null,
     })
-    exito.value = 'Perfil actualizado: los cambios ya se reflejan en todo el sistema.'
+    // CAM-014: confirmación visual consistente en todo el sistema
+    snackbar.exito('Perfil actualizado: los cambios ya se reflejan en todo el sistema.')
   } catch (err) {
     error.value = err instanceof ApiError ? err.message : 'No se pudo actualizar el perfil'
   } finally {
@@ -72,7 +73,6 @@ async function guardar(): Promise<void> {
 
     <div class="flex flex-col gap-5" :style="{ padding: 'var(--page-pad)', maxWidth: '760px' }">
       <BaseAlert v-if="error" tone="error" @cerrar="error = null">{{ error }}</BaseAlert>
-      <BaseAlert v-if="exito" tone="success" @cerrar="exito = null">{{ exito }}</BaseAlert>
 
       <p v-if="cargando" class="m-0" :style="{ color: 'var(--clay-500)' }">Cargando perfil…</p>
 

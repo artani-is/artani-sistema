@@ -5,29 +5,7 @@ import { crearCatalogoRouter } from "../controllers/catalogos.controller.js";
 
 export const catalogosRouter = Router();
 
-catalogosRouter.use(
-  "/tipos-material",
-  crearCatalogoRouter({
-    etiqueta: "el tipo de material",
-    listar: () =>
-      prisma.tipoMaterial.findMany({
-        orderBy: { nombre: "asc" },
-        include: { _count: { select: { materiasPrimas: true } } },
-      }),
-    crear: (data) => prisma.tipoMaterial.create({ data: { nombre: data.nombre as string } }),
-    actualizar: (id, data) =>
-      prisma.tipoMaterial.update({
-        where: { idTipoMaterial: id },
-        data: { nombre: data.nombre as string },
-      }),
-    eliminar: async (id) => {
-      await prisma.tipoMaterial.delete({ where: { idTipoMaterial: id } });
-    },
-    enUso: async (id) =>
-      (await prisma.materiaPrima.count({ where: { idTipoMaterial: id } })) > 0,
-    parseBody: (body) => ({ nombre: textoDe(body, "nombre", { obligatorio: true, max: 100 }) }),
-  }),
-);
+// CAM-009: el catálogo "Tipos de material" se eliminó del sistema.
 
 catalogosRouter.use(
   "/tecnicas",

@@ -69,15 +69,7 @@ model IntentoAcceso {
 }
 
 // SPRINT 1 catálogos maestros
-
-model TipoMaterial {
-  idTipoMaterial String @id @default(dbgenerated("gen_random_uuid()")) @map("id_tipo_material") @db.Uuid
-  nombre         String @unique @db.VarChar(100)
-
-  materiasPrimas MateriaPrima[]
-
-  @@map("tipo_material")
-}
+// CAM-009: el catálogo TIPO_MATERIAL se eliminó; el insumo se identifica por nombre y unidad.
 
 model TecnicaArtesanal {
   idTecnica   String  @id @default(dbgenerated("gen_random_uuid()")) @map("id_tecnica") @db.Uuid
@@ -118,13 +110,19 @@ model Galeria {
   @@map("galeria")
 }
 
+/// CAM-015: domicilio completo, con la misma estructura que GALERIA; solo nombre es obligatorio
 model Proveedor {
-  idProveedor String  @id @default(dbgenerated("gen_random_uuid()")) @map("id_proveedor") @db.Uuid
-  nombre      String  @db.VarChar(150)
-  telefono    String? @db.VarChar(20)
-  correo      String? @db.Citext
-  ciudad      String? @db.VarChar(100)
-  estado      String? @db.VarChar(100)
+  idProveedor    String  @id @default(dbgenerated("gen_random_uuid()")) @map("id_proveedor") @db.Uuid
+  nombre         String  @db.VarChar(150)
+  telefono       String? @db.VarChar(20)
+  correo         String? @db.Citext
+  calle          String? @db.VarChar(100)
+  numero         String? @db.VarChar(10) // admite valores no numéricos como "S/N"
+  numeroInterior String? @map("numero_interior") @db.VarChar(10)
+  colonia        String? @db.VarChar(100)
+  codigoPostal   String? @map("codigo_postal") @db.VarChar(10)
+  ciudad         String? @db.VarChar(100)
+  estado         String? @db.VarChar(100)
 
   compras Compra[]
 
@@ -134,43 +132,49 @@ model Proveedor {
 // SPRINT 1 materia prima y compras
 
 model MateriaPrima {
-  idMateria      String       @id @default(dbgenerated("gen_random_uuid()")) @map("id_materia") @db.Uuid
-  nombre         String       @db.VarChar(150)
-  unidadMedida   UnidadMedida @map("unidad_medida")
-  idTipoMaterial String       @map("id_tipo_material") @db.Uuid
-  tipoMaterial   TipoMaterial @relation(fields: [idTipoMaterial], references: [idTipoMaterial], onDelete: Restrict)
+  idMateria    String       @id @default(dbgenerated("gen_random_uuid()")) @map("id_materia") @db.Uuid
+  nombre       String       @db.VarChar(150)
+  unidadMedida UnidadMedida @map("unidad_medida")
 
   detallesCompra DetalleCompra[]
   insumos        InsumoArtesania[]
 
-  @@index([idTipoMaterial])
   @@map("materia_prima")
 }
 
+/// CAM-012: borrado lógico; el motivo de la eliminación se conserva junto al registro
 model Compra {
-  idCompra    String    @id @default(dbgenerated("gen_random_uuid()")) @map("id_compra") @db.Uuid
-  fecha       DateTime  @default(dbgenerated("CURRENT_DATE")) @db.Date
-  folioNota   String?   @map("folio_nota") @db.VarChar(50)
-  idProveedor String    @map("id_proveedor") @db.Uuid
-  proveedor   Proveedor @relation(fields: [idProveedor], references: [idProveedor], onDelete: Restrict)
-  idArtesano  String    @map("id_artesano") @db.Uuid
-  artesano    Artesano  @relation(fields: [idArtesano], references: [idArtesano], onDelete: Restrict)
+  idCompra          String    @id @default(dbgenerated("gen_random_uuid()")) @map("id_compra") @db.Uuid
+  fecha             DateTime  @default(dbgenerated("CURRENT_DATE")) @db.Date
+  folioNota         String?   @map("folio_nota") @db.VarChar(50)
+  eliminado         Boolean   @default(false)
+  motivoEliminacion String?   @map("motivo_eliminacion") @db.Text
+  fechaEliminacion  DateTime? @map("fecha_eliminacion") @db.Timestamptz(6)
+  idProveedor       String    @map("id_proveedor") @db.Uuid
+  proveedor         Proveedor @relation(fields: [idProveedor], references: [idProveedor], onDelete: Restrict)
+  idArtesano        String    @map("id_artesano") @db.Uuid
+  artesano          Artesano  @relation(fields: [idArtesano], references: [idArtesano], onDelete: Restrict)
 
   detalles DetalleCompra[]
 
   @@index([idProveedor])
   @@index([idArtesano])
+  @@index([eliminado])
   @@map("compra")
 }
 
+/// CAM-012: borrado lógico en paralelo con COMPRA (se marcan en la misma transacción)
 model DetalleCompra {
-  idDetalle     String       @id @default(dbgenerated("gen_random_uuid()")) @map("id_detalle") @db.Uuid
-  cantidad      Decimal      @db.Decimal(12, 3) // CHECK > 0 en la migración
-  costoUnitario Decimal      @map("costo_unitario") @db.Decimal(10, 2) // CHECK > 0 en la migración
-  idCompra      String       @map("id_compra") @db.Uuid
-  compra        Compra       @relation(fields: [idCompra], references: [idCompra], onDelete: Cascade)
-  idMateria     String       @map("id_materia") @db.Uuid
-  materiaPrima  MateriaPrima @relation(fields: [idMateria], references: [idMateria], onDelete: Restrict)
+  idDetalle         String       @id @default(dbgenerated("gen_random_uuid()")) @map("id_detalle") @db.Uuid
+  cantidad          Decimal      @db.Decimal(12, 3) // CHECK > 0 en la migración
+  costoUnitario     Decimal      @map("costo_unitario") @db.Decimal(10, 2) // CHECK > 0 en la migración
+  eliminado         Boolean      @default(false)
+  motivoEliminacion String?      @map("motivo_eliminacion") @db.Text
+  fechaEliminacion  DateTime?    @map("fecha_eliminacion") @db.Timestamptz(6)
+  idCompra          String       @map("id_compra") @db.Uuid
+  compra            Compra       @relation(fields: [idCompra], references: [idCompra], onDelete: Cascade)
+  idMateria         String       @map("id_materia") @db.Uuid
+  materiaPrima      MateriaPrima @relation(fields: [idMateria], references: [idMateria], onDelete: Restrict)
 
   @@index([idCompra])
   @@index([idMateria, idCompra])
@@ -179,6 +183,8 @@ model DetalleCompra {
 
 // SPRINT 2 inventario
 
+/// CAM-013: borrado lógico; una pieza dada de baja conserva fotos, costeo y certificado,
+/// y su código QR sigue resolviendo en la vista pública con la leyenda de baja.
 model Artesania {
   idArtesania     String           @id @default(dbgenerated("gen_random_uuid()")) @map("id_artesania") @db.Uuid
   nombre          String           @db.VarChar(200)
@@ -189,6 +195,9 @@ model Artesania {
   horasTrabajadas Decimal?         @map("horas_trabajadas") @db.Decimal(6, 2)
   tarifaHora      Decimal?         @map("tarifa_hora") @db.Decimal(10, 2)
   precioVenta     Decimal?         @map("precio_venta") @db.Decimal(10, 2)
+  eliminado         Boolean   @default(false)
+  motivoEliminacion String?   @map("motivo_eliminacion") @db.Text
+  fechaEliminacion  DateTime? @map("fecha_eliminacion") @db.Timestamptz(6)
   idArtesano      String           @map("id_artesano") @db.Uuid
   artesano        Artesano         @relation(fields: [idArtesano], references: [idArtesano], onDelete: Restrict)
   idTecnica       String           @map("id_tecnica") @db.Uuid
@@ -206,6 +215,7 @@ model Artesania {
   @@index([idTecnica])
   @@index([idCategoria])
   @@index([estado])
+  @@index([eliminado])
   @@map("artesania")
 }
 

@@ -17,6 +17,7 @@ artesaniasRouter.delete("/:id", artesaniasController.eliminar);
 artesaniasRouter.post("/:id/fotos", subirFotos.array("fotos", 10), fotosController.subir);
 artesaniasRouter.patch("/:id/fotos/:idFoto/principal", fotosController.marcarPrincipal);
 artesaniasRouter.delete("/:id/fotos/:idFoto", fotosController.eliminar);
+artesaniasRouter.post("/:id/fotos/restaurar", fotosController.restaurar); // CAM-014: «Deshacer»
 
 // Sprint 3: costeo (HU-8, HU-9)
 artesaniasRouter.get("/:id/insumos", costeoController.listarInsumos);

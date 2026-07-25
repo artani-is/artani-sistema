@@ -13,6 +13,7 @@ import {
   Settings,
 } from '@lucide/vue'
 import AppLogo from '@/components/ui/AppLogo.vue'
+import AppSnackbar from '@/components/ui/AppSnackbar.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
@@ -101,6 +102,9 @@ function salir(): void {
     <div class="min-w-0 flex-1">
       <RouterView />
     </div>
+
+    <!-- CAM-014: notificaciones globales del panel administrativo -->
+    <AppSnackbar />
   </div>
 </template>
 

@@ -35,7 +35,7 @@ export async function emitir(req: Request, res: Response, next: NextFunction) {
         certificado: true,
       },
     });
-    if (!pieza) {
+    if (!pieza || pieza.eliminado) {
       throw new ApiError(404, "La artesanía no existe");
     }
     if (pieza.certificado) {
@@ -112,6 +112,11 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 /**
  * Verificación pública del certificado (HU-12): sin autenticación.
  * Registra el escaneo (solo fecha/hora, RNF_013) y devuelve la ficha pública.
+ *
+ * CAM-013: una pieza dada de baja NO se reporta como certificado inválido —
+ * el certificado ya fue entregado físicamente al comprador y la pieza es
+ * auténtica. Se devuelve estado "BAJA" para que la vista pública informe
+ * el cambio de situación sin invalidar el origen de la obra.
  */
 export async function verificarPublico(req: Request, res: Response, next: NextFunction) {
   try {
@@ -146,6 +151,7 @@ export async function verificarPublico(req: Request, res: Response, next: NextFu
     res.json({
       idCertificado: certificado.idCertificado,
       fechaEmision: certificado.fechaEmision,
+      estado: artesania.eliminado ? "BAJA" : "VALIDO",
       pieza: {
         nombre: artesania.nombre,
         descripcion: artesania.descripcion,

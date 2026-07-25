@@ -5,12 +5,12 @@ import { ApiError } from "../middlewares/error.js";
 import { EstadoArtesania } from "../generated/prisma/enums.js";
 
 const includeInsumo = {
-  materiaPrima: { include: { tipoMaterial: true } },
+  materiaPrima: true,
 } as const;
 
 async function piezaEditableOr409(idArtesania: string) {
   const pieza = await prisma.artesania.findUnique({ where: { idArtesania } });
-  if (!pieza) {
+  if (!pieza || pieza.eliminado) {
     throw new ApiError(404, "La artesanía no existe");
   }
   if (pieza.estado === EstadoArtesania.VENDIDA) {
@@ -23,7 +23,7 @@ export async function listarInsumos(req: Request, res: Response, next: NextFunct
   try {
     const idArtesania = paramDe(req.params, "id");
     const pieza = await prisma.artesania.findUnique({ where: { idArtesania } });
-    if (!pieza) {
+    if (!pieza || pieza.eliminado) {
       throw new ApiError(404, "La artesanía no existe");
     }
     const insumos = await prisma.insumoArtesania.findMany({
@@ -55,9 +55,9 @@ export async function guardarInsumos(req: Request, res: Response, next: NextFunc
         if (fila.costoUnitarioUso !== undefined && fila.costoUnitarioUso !== null && fila.costoUnitarioUso !== "") {
           costo = decimalPositivoDe(fila, "costoUnitarioUso");
         } else {
-          // HU-8: el costo se toma del historial de compras más reciente
+          // HU-8: el costo se toma del historial de compras más reciente (sin compras eliminadas)
           const ultimaCompra = await prisma.detalleCompra.findFirst({
-            where: { idMateria },
+            where: { idMateria, eliminado: false },
             orderBy: { compra: { fecha: "desc" } },
           });
           if (!ultimaCompra) {

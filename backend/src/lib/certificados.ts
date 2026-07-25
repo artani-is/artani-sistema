@@ -86,11 +86,31 @@ export async function generarArchivosCertificado(datos: DatosCertificado) {
 
     const yDatos = doc.y + 18;
 
-    // Foto principal (izquierda)
+    // Foto principal (izquierda). CAM-006: el recuadro responde al tamaño real de la
+    // fotografía — se conserva la proporción original (sin deformar ni recortar) y el
+    // recuadro se ajusta a la imagen, acotado entre un mínimo y un máximo.
+    const MAX_FOTO = { ancho: 210, alto: 270 };
+    const MIN_FOTO = 140;
+    let altoRecuadro = 0;
     const archivoFoto = path.join(UPLOADS_DIR, path.basename(datos.rutaFotoPrincipal));
     if (existsSync(archivoFoto)) {
-      doc.image(archivoFoto, 48, yDatos, { fit: [210, 270], align: "center" });
-      doc.rect(48, yDatos, 210, 270).lineWidth(1.5).stroke(verde700);
+      const imagen = (
+        doc as unknown as { openImage(src: string): { width: number; height: number } }
+      ).openImage(archivoFoto);
+      const escala = Math.min(MAX_FOTO.ancho / imagen.width, MAX_FOTO.alto / imagen.height);
+      const anchoImagen = imagen.width * escala;
+      const altoImagen = imagen.height * escala;
+      // El recuadro nunca baja del mínimo; si la proporción deja espacio, la imagen se centra
+      const anchoRecuadro = Math.max(anchoImagen, MIN_FOTO);
+      altoRecuadro = Math.max(altoImagen, MIN_FOTO);
+      const xRecuadro = 48 + (MAX_FOTO.ancho - anchoRecuadro) / 2;
+      doc.image(
+        archivoFoto,
+        xRecuadro + (anchoRecuadro - anchoImagen) / 2,
+        yDatos + (altoRecuadro - altoImagen) / 2,
+        { width: anchoImagen, height: altoImagen },
+      );
+      doc.rect(xRecuadro, yDatos, anchoRecuadro, altoRecuadro).lineWidth(1.5).stroke(verde700);
     }
 
     // Ficha (derecha)
@@ -115,8 +135,8 @@ export async function generarArchivosCertificado(datos: DatosCertificado) {
     );
     campo("Folio del certificado", datos.idCertificado);
 
-    // Bloque de verificación con QR
-    const yQr = Math.max(y, yDatos + 290);
+    // Bloque de verificación con QR (debajo de la ficha y del recuadro de la foto)
+    const yQr = Math.max(y, yDatos + altoRecuadro + 20);
     doc.rect(48, yQr, ancho - 96, 170).fill(crema);
     doc.image(archivoQr, 68, yQr + 20, { width: 130 });
     doc

@@ -16,9 +16,10 @@ export const useMateriasPrimasStore = defineStore('materiasPrimas', () => {
     }
   }
 
-  async function crear(datos: Partial<MateriaPrima>): Promise<void> {
-    await api.post('/materias-primas', datos)
+  async function crear(datos: Partial<MateriaPrima>): Promise<MateriaPrima> {
+    const creada = await api.post<MateriaPrima>('/materias-primas', datos)
     await cargar()
+    return creada
   }
 
   async function actualizar(id: string, datos: Partial<MateriaPrima>): Promise<void> {
