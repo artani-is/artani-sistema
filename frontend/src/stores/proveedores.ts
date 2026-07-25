@@ -16,9 +16,10 @@ export const useProveedoresStore = defineStore('proveedores', () => {
     }
   }
 
-  async function crear(datos: Partial<Proveedor>): Promise<void> {
-    await api.post('/proveedores', datos)
+  async function crear(datos: Partial<Proveedor>): Promise<Proveedor> {
+    const creado = await api.post<Proveedor>('/proveedores', datos)
     await cargar()
+    return creado
   }
 
   async function actualizar(id: string, datos: Partial<Proveedor>): Promise<void> {

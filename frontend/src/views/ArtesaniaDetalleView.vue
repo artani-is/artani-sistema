@@ -26,6 +26,7 @@ import BaseModal from '@/components/BaseModal.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { useArtesaniasStore } from '@/stores/artesanias'
 import { useCatalogosStore } from '@/stores/catalogos'
+import { useSnackbarStore } from '@/stores/snackbar'
 import { ApiError } from '@/lib/api'
 import {
   ETIQUETA_ESTADO,
@@ -39,6 +40,7 @@ const route = useRoute()
 const router = useRouter()
 const store = useArtesaniasStore()
 const catalogos = useCatalogosStore()
+const snackbar = useSnackbarStore()
 
 const idArtesania = route.params.id as string
 const pieza = ref<Artesania | null>(null)
@@ -49,8 +51,6 @@ const avisoFotos = ref<string | null>(null)
 const subiendo = ref(false)
 const confirmarBorrarPieza = ref(false)
 const borrandoPieza = ref(false)
-const fotoAEliminar = ref<FotoArtesania | null>(null)
-const borrandoFoto = ref(false)
 
 const editable = computed(() => pieza.value?.estado !== 'VENDIDA')
 const fotoPrincipal = computed(() => {
@@ -71,7 +71,6 @@ const manoObra = computed(
 const precioSugerido = computed(() => totalInsumos.value + manoObra.value)
 
 // Sprint 4 — certificación
-const exito = ref<string | null>(null)
 const emitiendo = ref(false)
 const puedeEmitir = computed(
   () => (pieza.value?.fotos.length ?? 0) > 0 && Boolean(pieza.value?.precioVenta),
@@ -79,12 +78,11 @@ const puedeEmitir = computed(
 
 async function emitirCertificado(): Promise<void> {
   error.value = null
-  exito.value = null
   emitiendo.value = true
   try {
     await store.emitirCertificado(idArtesania)
     await cargarPieza()
-    exito.value = 'Certificado emitido: el código QR y el PDF están listos.'
+    snackbar.exito('Certificado emitido: el código QR y el PDF están listos.')
   } catch (err) {
     error.value = err instanceof ApiError ? err.message : 'No se pudo emitir el certificado'
   } finally {
@@ -133,7 +131,9 @@ async function confirmarVenta(): Promise<void> {
     await store.registrarVenta(idArtesania, { montoCobrado: monto.value })
     modal.value = null
     await cargarPieza()
-    exito.value = `Venta registrada por $${Number(monto.value).toLocaleString('es-MX')}. La pieza pasó a estado «Vendida» y ya no puede editarse.`
+    snackbar.exito(
+      `Venta registrada por $${Number(monto.value).toLocaleString('es-MX')}: la pieza pasó a estado «Vendida».`,
+    )
   } catch (err) {
     errorModal.value = err instanceof ApiError ? err.message : 'No se pudo registrar la venta'
   } finally {
@@ -159,7 +159,9 @@ async function confirmarConsignacion(): Promise<void> {
     })
     modal.value = null
     await cargarPieza()
-    exito.value = `Pieza enviada a consignación: ${consignacion.galeria?.nombre ?? 'galería seleccionada'}.`
+    snackbar.exito(
+      `Pieza enviada a consignación: ${consignacion.galeria?.nombre ?? 'galería seleccionada'}.`,
+    )
   } catch (err) {
     errorModal.value =
       err instanceof ApiError ? err.message : 'No se pudo registrar la consignación'
@@ -175,7 +177,7 @@ async function registrarDevolucion(): Promise<void> {
     await store.registrarDevolucion(consignacionActiva.value.idConsignacion)
     confirmarDevolucion.value = false
     await cargarPieza()
-    exito.value = 'Devolución registrada: la pieza vuelve a estar disponible.'
+    snackbar.exito('Devolución registrada: la pieza vuelve a estar disponible.')
   } catch (err) {
     error.value = err instanceof ApiError ? err.message : 'No se pudo registrar la devolución'
     confirmarDevolucion.value = false
@@ -237,34 +239,50 @@ async function subirFotos(evento: Event): Promise<void> {
 
 async function marcarPrincipal(foto: FotoArtesania): Promise<void> {
   avisoFotos.value = null
+  const anterior = pieza.value?.fotos.find((f) => f.esPrincipal) ?? null
   try {
     await store.marcarFotoPrincipal(idArtesania, foto.idFoto)
     await cargarPieza()
+    snackbar.exito(
+      'Fotografía principal actualizada.',
+      anterior
+        ? async () => {
+            await store.marcarFotoPrincipal(idArtesania, anterior.idFoto)
+            await cargarPieza()
+          }
+        : undefined,
+    )
   } catch (err) {
-    avisoFotos.value =
-      err instanceof ApiError ? err.message : 'No se pudo cambiar la fotografía principal'
+    snackbar.error(
+      err instanceof ApiError ? err.message : 'No se pudo cambiar la fotografía principal',
+    )
   }
 }
 
-async function confirmarEliminarFoto(): Promise<void> {
-  if (!fotoAEliminar.value) return
-  borrandoFoto.value = true
+/** CAM-014: eliminación sin justificación → Snackbar con «Deshacer», sin confirmación previa. */
+async function eliminarFoto(foto: FotoArtesania): Promise<void> {
+  avisoFotos.value = null
   try {
-    await store.eliminarFoto(idArtesania, fotoAEliminar.value.idFoto)
+    await store.eliminarFoto(idArtesania, foto.idFoto)
     await cargarPieza()
+    snackbar.exito('Fotografía eliminada.', async () => {
+      await store.restaurarFoto(idArtesania, {
+        rutaArchivo: foto.rutaArchivo,
+        esPrincipal: foto.esPrincipal,
+      })
+      await cargarPieza()
+    })
   } catch (err) {
-    avisoFotos.value =
-      err instanceof ApiError ? err.message : 'No se pudo eliminar la fotografía'
-  } finally {
-    fotoAEliminar.value = null
-    borrandoFoto.value = false
+    snackbar.error(err instanceof ApiError ? err.message : 'No se pudo eliminar la fotografía')
   }
 }
 
-async function eliminarPieza(): Promise<void> {
+/** CAM-013: baja con justificación obligatoria; la confirmación sustituye al «Deshacer». */
+async function eliminarPieza(motivo: string): Promise<void> {
   borrandoPieza.value = true
   try {
-    await store.eliminar(idArtesania)
+    await store.eliminar(idArtesania, motivo)
+    snackbar.mostrar({ mensaje: `Pieza eliminada: ${pieza.value?.nombre ?? ''}.` })
     router.push({ name: 'artesanias' })
   } catch (err) {
     confirmarBorrarPieza.value = false
@@ -281,12 +299,8 @@ function formatearFecha(iso: string): string {
 
 <template>
   <div>
+    <!-- CAM-004: el identificador se retiró del encabezado; se consulta en la ficha técnica -->
     <TopBar :title="pieza?.nombre ?? 'Pieza'">
-      <template #subtitle>
-        <span :style="{ fontFamily: 'var(--font-mono)' }">
-          ART-{{ idArtesania.slice(0, 4).toUpperCase() }}
-        </span>
-      </template>
       <template #actions>
         <BaseButton variant="ghost" @click="router.push({ name: 'artesanias' })">
           <template #icon><ArrowLeft :size="18" /></template>
@@ -319,7 +333,6 @@ function formatearFecha(iso: string): string {
         <!-- Columna derecha -->
         <div class="flex flex-col gap-6">
           <BaseAlert v-if="error" tone="error" @cerrar="error = null">{{ error }}</BaseAlert>
-          <BaseAlert v-if="exito" tone="success" @cerrar="exito = null">{{ exito }}</BaseAlert>
 
           <div class="card card-padded">
             <h3 class="mb-4 mt-0" :style="{ font: '600 21px/1 var(--font-serif)', color: 'var(--green-900)' }">
@@ -341,6 +354,16 @@ function formatearFecha(iso: string): string {
               <div v-if="pieza.horasTrabajadas" class="flex flex-col gap-1">
                 <span class="etiqueta-campo">Horas de trabajo</span>
                 <span class="valor-campo">{{ Number(pieza.horasTrabajadas) }} h</span>
+              </div>
+              <!-- CAM-004: identificador consultable con tratamiento secundario -->
+              <div class="flex flex-col gap-1">
+                <span class="etiqueta-campo">Identificador</span>
+                <span
+                  class="valor-campo"
+                  :style="{ fontFamily: 'var(--font-mono)', color: 'var(--clay-600)' }"
+                >
+                  ART-{{ pieza.idArtesania.slice(0, 4).toUpperCase() }}
+                </span>
               </div>
               <div v-if="consignacionActiva" class="flex flex-col gap-1">
                 <span class="etiqueta-campo">Galería receptora</span>
@@ -390,25 +413,32 @@ function formatearFecha(iso: string): string {
                 </span>
                 <span>{{ formatearMoneda(manoObra) }}</span>
               </div>
+              <!-- CAM-002 / CAM-003: el precio final ocupa la línea destacada;
+                   el sugerido queda como dato secundario de referencia -->
               <div
                 class="flex items-baseline justify-between"
                 :style="{ borderTop: '1.5px solid var(--cream-300)', marginTop: '10px', paddingTop: '12px' }"
               >
                 <span :style="{ font: '700 16px/1 var(--font-sans)', color: 'var(--green-900)' }">
-                  Precio sugerido
+                  Precio final
                 </span>
-                <span :style="{ font: '400 26px/1 var(--font-serif)', color: 'var(--green-700)' }">
-                  {{ formatearMoneda(precioSugerido) }}
+                <span
+                  v-if="pieza.precioVenta"
+                  :style="{ font: '400 26px/1 var(--font-serif)', color: 'var(--green-900)', fontWeight: 700 }"
+                >
+                  {{ formatearMoneda(Number(pieza.precioVenta)) }}
+                </span>
+                <span v-else :style="{ font: '500 17px/1 var(--font-sans)', color: 'var(--clay-500)' }">
+                  Sin asignar
                 </span>
               </div>
               <p
-                v-if="pieza.precioVenta"
                 class="mb-0 mt-2"
                 :style="{ font: '500 14px/1.4 var(--font-sans)', color: 'var(--clay-600)' }"
               >
-                Precio de venta final asignado:
-                <strong :style="{ color: 'var(--green-900)' }">
-                  {{ formatearMoneda(Number(pieza.precioVenta)) }}
+                Precio sugerido (referencia del costeo):
+                <strong :style="{ color: 'var(--green-700)' }">
+                  {{ formatearMoneda(precioSugerido) }}
                 </strong>
               </p>
             </template>
@@ -556,13 +586,14 @@ function formatearFecha(iso: string): string {
                   >
                     Hacer principal
                   </button>
+                  <!-- CAM-014: eliminación directa con opción de deshacer desde el aviso -->
                   <button
                     v-if="editable"
                     type="button"
                     class="cursor-pointer"
                     :style="{ color: 'var(--terracotta-500)' }"
                     title="Eliminar fotografía"
-                    @click="fotoAEliminar = foto"
+                    @click="eliminarFoto(foto)"
                   >
                     <Trash2 :size="15" />
                   </button>
@@ -620,21 +651,15 @@ function formatearFecha(iso: string): string {
       </div>
     </div>
 
+    <!-- CAM-013: la baja exige justificación; la pieza sale del inventario y de los reportes -->
     <ConfirmDialog
       :abierto="confirmarBorrarPieza"
       titulo="Eliminar pieza"
-      :mensaje="`¿Deseas eliminar «${pieza?.nombre}» y sus fotografías? Esta acción no se puede deshacer.`"
+      :mensaje="`¿Deseas eliminar «${pieza?.nombre}» de tu inventario? La pieza dejará de aparecer en tus listados y reportes. Si ya tiene certificado, quien escanee el código QR verá que la pieza fue dada de baja.`"
       :procesando="borrandoPieza"
+      con-motivo
       @confirmar="eliminarPieza"
       @cancelar="confirmarBorrarPieza = false"
-    />
-    <ConfirmDialog
-      :abierto="fotoAEliminar !== null"
-      titulo="Eliminar fotografía"
-      mensaje="¿Deseas eliminar esta fotografía de la pieza?"
-      :procesando="borrandoFoto"
-      @confirmar="confirmarEliminarFoto"
-      @cancelar="fotoAEliminar = null"
     />
 
     <!-- HU-14: registro de venta final -->

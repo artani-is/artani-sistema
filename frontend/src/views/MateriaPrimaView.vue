@@ -1,26 +1,29 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { Plus, Receipt, Package2, Truck, Trash2 } from '@lucide/vue'
+import { Plus, Receipt, Package2, Truck, Trash2, Pencil } from '@lucide/vue'
 import TopBar from '@/components/ui/TopBar.vue'
 import StatCard from '@/components/ui/StatCard.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import BaseAlert from '@/components/ui/BaseAlert.vue'
 import BaseModal from '@/components/BaseModal.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import DataTable from '@/components/ui/DataTable.vue'
 import TextField from '@/components/ui/TextField.vue'
 import SelectField, { type OpcionSelect } from '@/components/ui/SelectField.vue'
-import { useComprasStore } from '@/stores/compras'
+import { useComprasStore, type DatosCompra } from '@/stores/compras'
 import { useProveedoresStore } from '@/stores/proveedores'
 import { useMateriasPrimasStore } from '@/stores/materiasPrimas'
+import { useSnackbarStore } from '@/stores/snackbar'
 import { ApiError } from '@/lib/api'
-import { ETIQUETA_UNIDAD, type Compra } from '@/types'
+import { UNIDAD_CORTA, type Compra } from '@/types'
 
 const comprasStore = useComprasStore()
 const proveedoresStore = useProveedoresStore()
 const materiasStore = useMateriasPrimasStore()
+const snackbar = useSnackbarStore()
 
 const modalAbierto = ref(false)
+/** CAM-010: la compra en edición; null cuando el formulario es de alta. */
+const editando = ref<Compra | null>(null)
 const formulario = reactive({
   idMateria: '',
   idProveedor: '',
@@ -31,8 +34,7 @@ const formulario = reactive({
 })
 const errores = reactive<Record<string, string>>({})
 const guardando = ref(false)
-const aviso = ref<{ texto: string; tono: 'success' | 'error' } | null>(null)
-const eliminando = ref<Compra | null>(null)
+const eliminando = ref<FilaEntrada | null>(null)
 const borrando = ref(false)
 
 onMounted(() => {
@@ -61,7 +63,8 @@ const filas = computed<FilaEntrada[]>(() =>
       fecha: compra.fecha,
       folio: compra.folioNota ?? '—',
       insumo: detalle.materiaPrima?.nombre ?? '—',
-      unidad: detalle.materiaPrima ? ETIQUETA_UNIDAD[detalle.materiaPrima.unidadMedida] : '',
+      // CAM-011: unidad abreviada en columna propia
+      unidad: detalle.materiaPrima ? UNIDAD_CORTA[detalle.materiaPrima.unidadMedida] : '—',
       proveedor: compra.proveedor?.nombre ?? '—',
       cantidad: detalle.cantidad,
       importe: Number(detalle.cantidad) * Number(detalle.costoUnitario),
@@ -77,7 +80,7 @@ const proveedoresActivos = computed(
 const opcionesMateria = computed<OpcionSelect[]>(() =>
   materiasStore.materias.map((materia) => ({
     value: materia.idMateria,
-    label: `${materia.nombre} (${ETIQUETA_UNIDAD[materia.unidadMedida]})`,
+    label: `${materia.nombre} (${UNIDAD_CORTA[materia.unidadMedida]})`,
   })),
 )
 const opcionesProveedor = computed<OpcionSelect[]>(() =>
@@ -89,7 +92,7 @@ const opcionesProveedor = computed<OpcionSelect[]>(() =>
 
 const unidadSeleccionada = computed(() => {
   const materia = materiasStore.materias.find((m) => m.idMateria === formulario.idMateria)
-  return materia ? ETIQUETA_UNIDAD[materia.unidadMedida] : ''
+  return materia ? UNIDAD_CORTA[materia.unidadMedida] : ''
 })
 
 const totalFormulario = computed(() => {
@@ -98,6 +101,7 @@ const totalFormulario = computed(() => {
 })
 
 function abrirAlta(): void {
+  editando.value = null
   Object.assign(formulario, {
     idMateria: '',
     idProveedor: '',
@@ -110,6 +114,35 @@ function abrirAlta(): void {
   modalAbierto.value = true
 }
 
+/** CAM-010: abre el formulario con los datos de la compra precargados. */
+function abrirEdicion(fila: FilaEntrada): void {
+  const detalle = fila.compra.detalles[0]
+  editando.value = fila.compra
+  Object.assign(formulario, {
+    idMateria: detalle?.idMateria ?? '',
+    idProveedor: fila.compra.idProveedor,
+    cantidad: detalle?.cantidad ?? '',
+    costoUnitario: detalle?.costoUnitario ?? '',
+    fecha: fila.compra.fecha.slice(0, 10),
+    folioNota: fila.compra.folioNota ?? '',
+  })
+  for (const clave of Object.keys(errores)) delete errores[clave]
+  modalAbierto.value = true
+}
+
+function datosDe(compra: Compra): DatosCompra {
+  return {
+    idProveedor: compra.idProveedor,
+    folioNota: compra.folioNota ?? undefined,
+    fecha: compra.fecha.slice(0, 10),
+    detalles: compra.detalles.map((d) => ({
+      idMateria: d.idMateria,
+      cantidad: Number(d.cantidad),
+      costoUnitario: Number(d.costoUnitario),
+    })),
+  }
+}
+
 async function guardar(): Promise<void> {
   for (const clave of Object.keys(errores)) delete errores[clave]
   if (!formulario.idMateria) errores.idMateria = 'Selecciona el insumo.'
@@ -119,41 +152,53 @@ async function guardar(): Promise<void> {
     errores.costoUnitario = 'El costo debe ser mayor a cero.'
   if (Object.keys(errores).length > 0) return
 
+  const datos: DatosCompra = {
+    idProveedor: formulario.idProveedor,
+    folioNota: formulario.folioNota.trim() || undefined,
+    fecha: formulario.fecha || undefined,
+    detalles: [
+      {
+        idMateria: formulario.idMateria,
+        cantidad: Number(formulario.cantidad),
+        costoUnitario: Number(formulario.costoUnitario),
+      },
+    ],
+  }
+
   guardando.value = true
   try {
-    await comprasStore.crear({
-      idProveedor: formulario.idProveedor,
-      folioNota: formulario.folioNota.trim() || undefined,
-      fecha: formulario.fecha || undefined,
-      detalles: [
-        {
-          idMateria: formulario.idMateria,
-          cantidad: Number(formulario.cantidad),
-          costoUnitario: Number(formulario.costoUnitario),
-        },
-      ],
-    })
-    modalAbierto.value = false
-    aviso.value = { texto: 'Entrada de materia prima registrada.', tono: 'success' }
+    if (editando.value) {
+      const anterior = datosDe(editando.value)
+      const id = editando.value.idCompra
+      await comprasStore.actualizar(id, datos)
+      modalAbierto.value = false
+      snackbar.exito('Compra actualizada.', async () => {
+        await comprasStore.actualizar(id, anterior)
+      })
+    } else {
+      const compra = await comprasStore.crear(datos)
+      modalAbierto.value = false
+      snackbar.exito('Entrada de materia prima registrada.', async () => {
+        await comprasStore.eliminar(compra.idCompra, 'Alta deshecha con el botón «Deshacer»')
+      })
+    }
   } catch (err) {
     errores.costoUnitario =
-      err instanceof ApiError ? err.message : 'No se pudo registrar la entrada'
+      err instanceof ApiError ? err.message : 'No se pudo guardar la entrada'
   } finally {
     guardando.value = false
   }
 }
 
-async function confirmarEliminar(): Promise<void> {
+/** CAM-012: eliminación con motivo obligatorio y confirmación; sin «Deshacer» posterior. */
+async function confirmarEliminar(motivo: string): Promise<void> {
   if (!eliminando.value) return
   borrando.value = true
   try {
-    await comprasStore.eliminar(eliminando.value.idCompra)
-    aviso.value = { texto: 'Entrada eliminada del historial.', tono: 'success' }
+    await comprasStore.eliminar(eliminando.value.compra.idCompra, motivo)
+    snackbar.mostrar({ mensaje: 'Entrada eliminada del historial.' })
   } catch (err) {
-    aviso.value = {
-      texto: err instanceof ApiError ? err.message : 'No se pudo eliminar la entrada',
-      tono: 'error',
-    }
+    snackbar.error(err instanceof ApiError ? err.message : 'No se pudo eliminar la entrada')
   } finally {
     eliminando.value = null
     borrando.value = false
@@ -186,8 +231,6 @@ function formatearMoneda(valor: number): string {
     </TopBar>
 
     <div class="flex flex-col gap-6" :style="{ padding: 'var(--page-pad)' }">
-      <BaseAlert v-if="aviso" :tone="aviso.tono" @cerrar="aviso = null">{{ aviso.texto }}</BaseAlert>
-
       <div class="grid grid-cols-1 gap-5 sm:grid-cols-3">
         <StatCard label="Gasto en insumos" :value="formatearMoneda(gastoTotal)" hint="Acumulado">
           <template #icon><Receipt :size="20" /></template>
@@ -204,6 +247,7 @@ function formatearMoneda(valor: number): string {
         <h3 class="mb-3.5 mt-0" :style="{ font: '600 var(--text-h3)/1 var(--font-serif)', color: 'var(--green-900)' }">
           Historial de compras
         </h3>
+        <!-- CAM-011: cantidad y unidad en columnas independientes -->
         <DataTable
           :columns="[
             { key: 'folio', header: 'Folio', width: '110px' },
@@ -211,8 +255,9 @@ function formatearMoneda(valor: number): string {
             { key: 'insumo', header: 'Insumo' },
             { key: 'proveedor', header: 'Proveedor' },
             { key: 'cantidad', header: 'Cantidad', align: 'right' },
+            { key: 'unidad', header: 'Unidad', width: '100px' },
             { key: 'importe', header: 'Costo', align: 'right' },
-            { key: 'acciones', header: '', width: '70px', align: 'right' },
+            { key: 'acciones', header: '', width: '110px', align: 'right' },
           ]"
           :rows="filas"
           :row-key="(fila: FilaEntrada) => fila.clave"
@@ -227,19 +272,31 @@ function formatearMoneda(valor: number): string {
           <template #cell-insumo="{ row }">
             <strong :style="{ color: 'var(--green-900)' }">{{ row.insumo }}</strong>
           </template>
-          <template #cell-cantidad="{ row }">{{ row.cantidad }} {{ row.unidad }}</template>
+          <template #cell-cantidad="{ row }">{{ Number(row.cantidad) }}</template>
+          <template #cell-unidad="{ row }">{{ row.unidad }}</template>
           <template #cell-importe="{ row }">
             <strong>{{ formatearMoneda(row.importe) }}</strong>
           </template>
+          <!-- CAM-010 / CAM-012: editar es la acción principal; eliminar queda subordinada -->
           <template #cell-acciones="{ row }">
-            <button
-              type="button"
-              class="boton-icono-peligro"
-              title="Eliminar entrada"
-              @click="eliminando = row.compra"
-            >
-              <Trash2 :size="18" />
-            </button>
+            <span class="inline-flex gap-1">
+              <button
+                type="button"
+                class="boton-icono"
+                title="Editar entrada"
+                @click="abrirEdicion(row)"
+              >
+                <Pencil :size="18" />
+              </button>
+              <button
+                type="button"
+                class="boton-icono boton-icono-peligro"
+                title="Eliminar entrada"
+                @click="eliminando = row"
+              >
+                <Trash2 :size="18" />
+              </button>
+            </span>
           </template>
         </DataTable>
       </div>
@@ -247,7 +304,7 @@ function formatearMoneda(valor: number): string {
 
     <BaseModal
       :abierto="modalAbierto"
-      titulo="Registrar entrada de materia prima"
+      :titulo="editando ? 'Editar entrada de materia prima' : 'Registrar entrada de materia prima'"
       :ancho="540"
       @cerrar="modalAbierto = false"
     >
@@ -317,24 +374,37 @@ function formatearMoneda(valor: number): string {
       <template #footer>
         <BaseButton variant="ghost" @click="modalAbierto = false">Cancelar</BaseButton>
         <BaseButton variant="primary" :disabled="guardando" @click="guardar">
-          {{ guardando ? 'Guardando…' : 'Guardar entrada' }}
+          {{ guardando ? 'Guardando…' : editando ? 'Guardar cambios' : 'Guardar entrada' }}
         </BaseButton>
       </template>
     </BaseModal>
 
+    <!-- CAM-012: motivo obligatorio + confirmación con resumen de la compra -->
     <ConfirmDialog
       :abierto="eliminando !== null"
       titulo="Eliminar entrada"
-      mensaje="¿Deseas eliminar esta entrada de materia prima? También se eliminará del historial de precios."
+      mensaje="Vas a eliminar esta entrada del historial de compras y del historial de precios:"
       :procesando="borrando"
+      con-motivo
       @confirmar="confirmarEliminar"
       @cancelar="eliminando = null"
-    />
+    >
+      <div v-if="eliminando" class="resumen-compra">
+        <div><span>Fecha</span><strong>{{ formatearFecha(eliminando.fecha) }}</strong></div>
+        <div><span>Insumo</span><strong>{{ eliminando.insumo }}</strong></div>
+        <div><span>Proveedor</span><strong>{{ eliminando.proveedor }}</strong></div>
+        <div>
+          <span>Cantidad</span>
+          <strong>{{ Number(eliminando.cantidad) }} {{ eliminando.unidad }}</strong>
+        </div>
+        <div><span>Costo</span><strong>{{ formatearMoneda(eliminando.importe) }}</strong></div>
+      </div>
+    </ConfirmDialog>
   </div>
 </template>
 
 <style scoped>
-.boton-icono-peligro {
+.boton-icono {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -343,11 +413,36 @@ function formatearMoneda(valor: number): string {
   border-radius: var(--radius-md);
   border: none;
   background: transparent;
-  color: var(--terracotta-500);
+  color: var(--green-700);
   cursor: pointer;
   transition: background var(--duration-fast);
 }
-.boton-icono-peligro:hover {
+.boton-icono:hover {
   background: var(--cream-200);
+}
+.boton-icono-peligro {
+  color: var(--terracotta-500);
+}
+.resumen-compra {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: var(--cream-100);
+  border: 1.5px solid var(--cream-300);
+}
+.resumen-compra > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font: 400 var(--text-sm) / 1.4 var(--font-sans);
+}
+.resumen-compra span {
+  color: var(--clay-500);
+}
+.resumen-compra strong {
+  color: var(--green-900);
+  text-align: right;
 }
 </style>

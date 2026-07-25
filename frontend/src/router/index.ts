@@ -62,6 +62,16 @@ const router = createRouter({
           name: 'certificados',
           component: () => import('@/views/CertificadosView.vue'),
         },
+        {
+          path: 'reportes',
+          name: 'reportes',
+          component: () => import('@/views/ReportesView.vue'),
+        },
+        {
+          path: 'ajustes',
+          name: 'ajustes',
+          component: () => import('@/views/AjustesView.vue'),
+        },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/' },

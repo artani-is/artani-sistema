@@ -1,5 +1,16 @@
 <script setup lang="ts">
-withDefaults(defineProps<{ height?: number; gap?: number }>(), { height: 12, gap: 4 })
+import { computed } from 'vue'
+
+/**
+ * Franja decorativa inspirada en textiles.
+ * CAM-005: se dibuja con un degradado repetible para cubrir SIEMPRE el ancho
+ * total del contenedor, en cualquier resolución (antes se generaba un número
+ * fijo de bloques y la franja quedaba incompleta en pantallas anchas).
+ */
+const props = withDefaults(defineProps<{ height?: number; gap?: number }>(), {
+  height: 12,
+  gap: 4,
+})
 
 const PALETA = [
   'var(--green-700)',
@@ -11,23 +22,22 @@ const PALETA = [
   'var(--terracotta-500)',
   'var(--amber-500)',
 ]
+
+const fondo = computed(() => {
+  const bloque = Math.round(props.height * 0.9)
+  const paso = bloque + props.gap
+  const segmentos = PALETA.flatMap((color, i) => [
+    `${color} ${i * paso}px ${i * paso + bloque}px`,
+    `transparent ${i * paso + bloque}px ${(i + 1) * paso}px`,
+  ])
+  return `repeating-linear-gradient(90deg, ${segmentos.join(', ')})`
+})
 </script>
 
 <template>
   <div
     aria-hidden="true"
-    class="flex w-full items-center overflow-hidden"
-    :style="{ gap: `${gap}px` }"
-  >
-    <span
-      v-for="i in 60"
-      :key="i"
-      class="shrink-0 rounded-[2px]"
-      :style="{
-        width: `${Math.round(height * 0.9)}px`,
-        height: `${height}px`,
-        background: PALETA[(i - 1) % PALETA.length],
-      }"
-    />
-  </div>
+    class="w-full"
+    :style="{ height: `${height}px`, background: fondo }"
+  />
 </template>

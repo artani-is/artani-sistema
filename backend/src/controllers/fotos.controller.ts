@@ -25,7 +25,7 @@ export async function subir(req: Request, res: Response, next: NextFunction) {
       where: { idArtesania },
       include: { _count: { select: { fotos: true } } },
     });
-    if (!artesania) {
+    if (!artesania || artesania.eliminado) {
       await Promise.all(archivos.map((archivo) => borrarArchivo(archivo.filename)));
       throw new ApiError(404, "La artesanía no existe");
     }
@@ -85,8 +85,8 @@ export async function eliminar(req: Request, res: Response, next: NextFunction) 
     if (!foto) {
       throw new ApiError(404, "La fotografía no existe para esta artesanía");
     }
+    // CAM-014: el archivo se conserva en disco para que «Deshacer» pueda restaurar la foto
     await prisma.fotoArtesania.delete({ where: { idFoto } });
-    await borrarArchivo(foto.rutaArchivo);
 
     // Mantener siempre una foto principal si quedan fotos (HU-07)
     if (foto.esPrincipal) {
@@ -102,6 +102,38 @@ export async function eliminar(req: Request, res: Response, next: NextFunction) 
       }
     }
     res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** CAM-014: revierte la eliminación de una fotografía (acción «Deshacer» del Snackbar). */
+export async function restaurar(req: Request, res: Response, next: NextFunction) {
+  try {
+    const idArtesania = paramDe(req.params, "id");
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const rutaArchivo = typeof body.rutaArchivo === "string" ? body.rutaArchivo : "";
+    if (!rutaArchivo.startsWith("/uploads/")) {
+      throw new ApiError(400, "La ruta de la fotografía a restaurar no es válida");
+    }
+    const artesania = await prisma.artesania.findUnique({ where: { idArtesania } });
+    if (!artesania || artesania.eliminado) {
+      throw new ApiError(404, "La artesanía no existe");
+    }
+
+    const esPrincipal = body.esPrincipal === true;
+    const foto = await prisma.$transaction(async (tx) => {
+      if (esPrincipal) {
+        await tx.fotoArtesania.updateMany({
+          where: { idArtesania, esPrincipal: true },
+          data: { esPrincipal: false },
+        });
+      }
+      return tx.fotoArtesania.create({
+        data: { idArtesania, rutaArchivo, esPrincipal },
+      });
+    });
+    res.status(201).json(foto);
   } catch (err) {
     next(err);
   }

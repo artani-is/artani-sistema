@@ -54,6 +54,20 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  /** HU-17: los cambios se reflejan de inmediato, sin cerrar sesión. */
+  async function actualizarPerfil(datos: {
+    nombres: string
+    apellidoPaterno: string
+    apellidoMaterno?: string | null
+    telefono?: string | null
+    nombreTaller?: string | null
+  }): Promise<void> {
+    const actualizado = await api.put<Artesano>('/auth/perfil', datos)
+    artesano.value = actualizado
+    const almacen = localStorage.getItem(ARTESANO_KEY) !== null ? localStorage : sessionStorage
+    almacen.setItem(ARTESANO_KEY, JSON.stringify(actualizado))
+  }
+
   function cerrarSesion(): void {
     token.value = null
     artesano.value = null
@@ -70,6 +84,7 @@ export const useAuthStore = defineStore('auth', () => {
     autenticado,
     nombreCompleto,
     iniciarSesion,
+    actualizarPerfil,
     cerrarSesion,
   }
 })

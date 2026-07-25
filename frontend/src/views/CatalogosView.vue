@@ -6,31 +6,35 @@ import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseBadge from '@/components/ui/BaseBadge.vue'
 import BaseAlert from '@/components/ui/BaseAlert.vue'
 import BaseModal from '@/components/BaseModal.vue'
-import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import DataTable from '@/components/ui/DataTable.vue'
 import TextField from '@/components/ui/TextField.vue'
 import SelectField, { type OpcionSelect } from '@/components/ui/SelectField.vue'
-import { useCatalogosStore, type CatalogoKey } from '@/stores/catalogos'
+import { CONFIG_CATALOGOS, useCatalogosStore, type CatalogoKey } from '@/stores/catalogos'
 import { useProveedoresStore } from '@/stores/proveedores'
 import { useMateriasPrimasStore } from '@/stores/materiasPrimas'
+import { useSnackbarStore } from '@/stores/snackbar'
 import { ApiError } from '@/lib/api'
 import {
   ETIQUETA_UNIDAD,
   UNIDADES_MEDIDA,
+  UNIDAD_CORTA,
   type MateriaPrima,
   type PrecioHistorico,
   type Proveedor,
+  type UnidadMedida,
 } from '@/types'
 
-type TabKey = 'tecnicas' | 'materiales' | 'tipos' | 'categorias' | 'proveedores' | 'galerias'
+// CAM-009: la pestaña «Tipos de material» se eliminó del módulo
+type TabKey = 'tecnicas' | 'materiales' | 'categorias' | 'proveedores' | 'galerias'
 
 interface CampoForm {
   key: string
   label: string
-  tipo?: 'text' | 'email' | 'tel' | 'textarea' | 'unidad' | 'tipoMaterial'
+  tipo?: 'text' | 'email' | 'tel' | 'textarea' | 'unidad' | 'seccion'
   placeholder?: string
   obligatorio?: boolean
   anchoMedio?: boolean
+  helpText?: string
 }
 
 interface FilaCatalogo {
@@ -69,25 +73,15 @@ const ESQUEMAS: Record<TabKey, EsquemaTab> = {
     singular: 'material',
     articulo: 'el',
     usosNoun: 'compra(s)',
-    ancho: true,
+    // CAM-009: el material se identifica solo por nombre y unidad de medida
     campos: [
       { key: 'nombre', label: 'Nombre del material', obligatorio: true, placeholder: 'p. ej. Lana cardada' },
-      { key: 'idTipoMaterial', label: 'Tipo de material', tipo: 'tipoMaterial', obligatorio: true, anchoMedio: true },
-      { key: 'unidadMedida', label: 'Unidad de medida', tipo: 'unidad', obligatorio: true, anchoMedio: true },
+      { key: 'unidadMedida', label: 'Unidad de medida', tipo: 'unidad', obligatorio: true },
     ],
     columnas: [
       { key: 'nombre', header: 'Material' },
-      { key: 'tipo', header: 'Tipo' },
       { key: 'unidad', header: 'Unidad' },
     ],
-  },
-  tipos: {
-    etiqueta: 'Tipos de material',
-    singular: 'tipo de material',
-    articulo: 'el',
-    usosNoun: 'material(es)',
-    campos: [{ key: 'nombre', label: 'Nombre del tipo de material', obligatorio: true }],
-    columnas: [{ key: 'nombre', header: 'Tipo de material' }],
   },
   categorias: {
     etiqueta: 'Categorías',
@@ -103,10 +97,18 @@ const ESQUEMAS: Record<TabKey, EsquemaTab> = {
     articulo: 'el',
     usosNoun: 'compra(s)',
     ancho: true,
+    // CAM-015: domicilio completo en sección propia; solo el nombre es obligatorio
     campos: [
       { key: 'nombre', label: 'Nombre del proveedor', obligatorio: true },
+      { key: '_contacto', label: 'Datos de contacto', tipo: 'seccion' },
       { key: 'correo', label: 'Correo electrónico', tipo: 'email', placeholder: 'nombre@correo.com', anchoMedio: true },
       { key: 'telefono', label: 'Teléfono', tipo: 'tel', placeholder: '951 000 0000', anchoMedio: true },
+      { key: '_domicilio', label: 'Domicilio (opcional)', tipo: 'seccion' },
+      { key: 'calle', label: 'Calle', anchoMedio: true },
+      { key: 'numero', label: 'Número exterior', placeholder: 'p. ej. 12 o S/N', anchoMedio: true },
+      { key: 'numeroInterior', label: 'Número interior', placeholder: 'Opcional', anchoMedio: true },
+      { key: 'colonia', label: 'Colonia', anchoMedio: true },
+      { key: 'codigoPostal', label: 'Código postal', anchoMedio: true },
       { key: 'ciudad', label: 'Ciudad', anchoMedio: true },
       { key: 'estado', label: 'Estado', anchoMedio: true },
     ],
@@ -150,18 +152,17 @@ const TABS = Object.entries(ESQUEMAS).map(([key, e]) => ({ key: key as TabKey, e
 const catalogos = useCatalogosStore()
 const proveedoresStore = useProveedoresStore()
 const materiasStore = useMateriasPrimasStore()
+const snackbar = useSnackbarStore()
 
 const tab = ref<TabKey>('tecnicas')
 const esquema = computed(() => ESQUEMAS[tab.value])
 
-const aviso = ref<{ texto: string; tono: 'success' | 'warning' | 'error' } | null>(null)
+const aviso = ref<{ texto: string; tono: 'warning' | 'error' } | null>(null)
 const modalAbierto = ref(false)
 const editando = ref<FilaCatalogo | null>(null)
 const formulario = reactive<Record<string, string>>({})
 const errores = reactive<Record<string, string>>({})
 const guardando = ref(false)
-const eliminando = ref<FilaCatalogo | null>(null)
-const borrando = ref(false)
 
 const historialDe = ref<FilaCatalogo | null>(null)
 const historial = ref<PrecioHistorico[]>([])
@@ -175,7 +176,6 @@ onMounted(() => {
 
 const CLAVE_CATALOGO: Partial<Record<TabKey, CatalogoKey>> = {
   tecnicas: 'tecnicas',
-  tipos: 'tiposMaterial',
   categorias: 'categorias',
   galerias: 'galerias',
 }
@@ -187,12 +187,6 @@ const filas = computed<FilaCatalogo[]>(() => {
         ...t,
         id: t.idTecnica as string,
         usos: (t._count as { artesanias: number } | undefined)?.artesanias ?? 0,
-      }))
-    case 'tipos':
-      return catalogos.listas.tiposMaterial.map((t) => ({
-        ...t,
-        id: t.idTipoMaterial as string,
-        usos: (t._count as { materiasPrimas: number } | undefined)?.materiasPrimas ?? 0,
       }))
     case 'categorias':
       return catalogos.listas.categorias.map((c) => ({
@@ -207,6 +201,7 @@ const filas = computed<FilaCatalogo[]>(() => {
         ...p,
         id: p.idProveedor,
         usos: p._count?.compras ?? 0,
+        // CAM-015: la columna muestra la versión resumida (ciudad y estado)
         ubicacion: [p.ciudad, p.estado].filter(Boolean).join(', '),
       }))
     case 'materiales':
@@ -214,7 +209,6 @@ const filas = computed<FilaCatalogo[]>(() => {
         ...m,
         id: m.idMateria,
         usos: m._count?.detallesCompra ?? 0,
-        tipo: m.tipoMaterial?.nombre ?? '—',
         unidad: ETIQUETA_UNIDAD[m.unidadMedida],
       }))
   }
@@ -231,12 +225,6 @@ const opcionesUnidad: OpcionSelect[] = UNIDADES_MEDIDA.map((u) => ({
   value: u,
   label: ETIQUETA_UNIDAD[u],
 }))
-const opcionesTipoMaterial = computed<OpcionSelect[]>(() =>
-  catalogos.listas.tiposMaterial.map((t) => ({
-    value: t.idTipoMaterial as string,
-    label: t.nombre,
-  })),
-)
 
 function abrirAlta(): void {
   editando.value = null
@@ -247,58 +235,104 @@ function abrirAlta(): void {
 function abrirEdicion(fila: FilaCatalogo): void {
   editando.value = fila
   limpiarFormulario()
-  for (const campo of esquema.value.campos) {
+  for (const campo of camposDeDatos()) {
     const valor = fila[campo.key]
     formulario[campo.key] = typeof valor === 'string' ? valor : ''
   }
   modalAbierto.value = true
 }
 
+/** Campos que capturan datos (excluye los encabezados de sección). */
+function camposDeDatos(): CampoForm[] {
+  return esquema.value.campos.filter((campo) => campo.tipo !== 'seccion')
+}
+
 function limpiarFormulario(): void {
   for (const clave of Object.keys(formulario)) delete formulario[clave]
   for (const clave of Object.keys(errores)) delete errores[clave]
-  for (const campo of esquema.value.campos) {
+  for (const campo of camposDeDatos()) {
     formulario[campo.key] = campo.key === 'pais' ? 'Mexico' : ''
   }
 }
 
+/** Datos actuales de una fila con la forma que espera la API (para editar o recrear). */
+function datosDeFila(fila: FilaCatalogo): Record<string, string | null> {
+  const datos: Record<string, string | null> = {}
+  for (const campo of camposDeDatos()) {
+    const valor = fila[campo.key]
+    datos[campo.key] = typeof valor === 'string' && valor ? valor : null
+  }
+  return datos
+}
+
+async function persistir(
+  datos: Record<string, string | null>,
+  id: string | undefined,
+): Promise<{ id: string }> {
+  if (tab.value === 'proveedores') {
+    if (id) {
+      await proveedoresStore.actualizar(id, datos as Partial<Proveedor>)
+      return { id }
+    }
+    const proveedor = await proveedoresStore.crear(datos as Partial<Proveedor>)
+    return { id: proveedor.idProveedor }
+  }
+  if (tab.value === 'materiales') {
+    if (id) {
+      await materiasStore.actualizar(id, datos as Partial<MateriaPrima>)
+      return { id }
+    }
+    const materia = await materiasStore.crear(datos as Partial<MateriaPrima>)
+    return { id: materia.idMateria }
+  }
+  const clave = CLAVE_CATALOGO[tab.value]!
+  if (id) {
+    await catalogos.actualizar(clave, id, datos)
+    return { id }
+  }
+  const elemento = await catalogos.crear(clave, datos)
+  return { id: elemento[CONFIG_CATALOGOS[clave].idCampo] as string }
+}
+
+async function eliminarPorId(pestana: TabKey, id: string): Promise<void> {
+  if (pestana === 'proveedores') await proveedoresStore.eliminar(id)
+  else if (pestana === 'materiales') await materiasStore.eliminar(id)
+  else await catalogos.eliminar(CLAVE_CATALOGO[pestana]!, id)
+}
+
 async function guardar(): Promise<void> {
   for (const clave of Object.keys(errores)) delete errores[clave]
-  for (const campo of esquema.value.campos) {
+  for (const campo of camposDeDatos()) {
     if (campo.obligatorio && !formulario[campo.key]?.trim()) {
       errores[campo.key] =
-        campo.tipo === 'unidad' || campo.tipo === 'tipoMaterial'
-          ? 'Selecciona una opción.'
-          : 'Este campo es obligatorio.'
+        campo.tipo === 'unidad' ? 'Selecciona una opción.' : 'Este campo es obligatorio.'
     }
   }
   if (Object.keys(errores).length > 0) return
 
   guardando.value = true
+  const pestana = tab.value
   try {
     const datos: Record<string, string | null> = {}
-    for (const campo of esquema.value.campos) {
+    for (const campo of camposDeDatos()) {
       datos[campo.key] = formulario[campo.key]?.trim() || null
     }
-    const id = editando.value?.id
-
-    if (tab.value === 'proveedores') {
-      if (id) await proveedoresStore.actualizar(id, datos as Partial<Proveedor>)
-      else await proveedoresStore.crear(datos as Partial<Proveedor>)
-    } else if (tab.value === 'materiales') {
-      if (id) await materiasStore.actualizar(id, datos as Partial<MateriaPrima>)
-      else await materiasStore.crear(datos as Partial<MateriaPrima>)
-    } else {
-      const clave = CLAVE_CATALOGO[tab.value]!
-      if (id) await catalogos.actualizar(clave, id, datos)
-      else await catalogos.crear(clave, datos)
-    }
+    const anterior = editando.value ? datosDeFila(editando.value) : null
+    const idPrevio = editando.value?.id
+    const { id } = await persistir(datos, idPrevio)
 
     modalAbierto.value = false
     const { articulo, singular } = esquema.value
-    aviso.value = {
-      texto: `Se ${editando.value ? 'actualizó' : 'agregó'} ${articulo === 'el' ? 'el' : 'la'} ${singular} «${datos.nombre}».`,
-      tono: 'success',
+    // CAM-014: confirmación con «Deshacer» (revierte la edición o retira el alta)
+    if (anterior && idPrevio) {
+      snackbar.exito(`Se actualizó ${articulo} ${singular} «${datos.nombre}».`, async () => {
+        tab.value = pestana
+        await persistir(anterior, idPrevio)
+      })
+    } else {
+      snackbar.exito(`Se agregó ${articulo} ${singular} «${datos.nombre}».`, async () => {
+        await eliminarPorId(pestana, id)
+      })
     }
   } catch (err) {
     errores.nombre = err instanceof ApiError ? err.message : 'No se pudo guardar el elemento'
@@ -307,34 +341,29 @@ async function guardar(): Promise<void> {
   }
 }
 
-function solicitarEliminar(fila: FilaCatalogo): void {
+/**
+ * CAM-014: las eliminaciones de catálogos no requieren justificación,
+ * por lo que se ejecutan directo con opción de «Deshacer» (sin diálogo previo).
+ */
+async function eliminarElemento(fila: FilaCatalogo): Promise<void> {
+  const { articulo, singular, usosNoun } = esquema.value
   if (fila.usos > 0) {
     aviso.value = {
-      texto: `No se puede eliminar «${fila.nombre}»: está vinculad${esquema.value.articulo === 'el' ? 'o' : 'a'} a ${fila.usos} ${esquema.value.usosNoun}.`,
+      texto: `No se puede eliminar «${fila.nombre}»: está vinculad${articulo === 'el' ? 'o' : 'a'} a ${fila.usos} ${usosNoun}.`,
       tono: 'warning',
     }
     return
   }
-  eliminando.value = fila
-}
-
-async function confirmarEliminar(): Promise<void> {
-  const fila = eliminando.value
-  if (!fila) return
-  borrando.value = true
+  const pestana = tab.value
+  const datos = datosDeFila(fila)
   try {
-    if (tab.value === 'proveedores') await proveedoresStore.eliminar(fila.id)
-    else if (tab.value === 'materiales') await materiasStore.eliminar(fila.id)
-    else await catalogos.eliminar(CLAVE_CATALOGO[tab.value]!, fila.id)
-    aviso.value = { texto: `Se eliminó «${fila.nombre}».`, tono: 'success' }
+    await eliminarPorId(pestana, fila.id)
+    snackbar.exito(`Se eliminó ${articulo} ${singular} «${fila.nombre}».`, async () => {
+      tab.value = pestana
+      await persistir(datos, undefined)
+    })
   } catch (err) {
-    aviso.value = {
-      texto: err instanceof ApiError ? err.message : 'No se pudo eliminar el elemento',
-      tono: 'error',
-    }
-  } finally {
-    eliminando.value = null
-    borrando.value = false
+    snackbar.error(err instanceof ApiError ? err.message : 'No se pudo eliminar el elemento')
   }
 }
 
@@ -359,6 +388,10 @@ function formatearFecha(iso: string): string {
 }
 function formatearMoneda(valor: string): string {
   return '$' + Number(valor).toLocaleString('es-MX')
+}
+
+function unidadCortaDe(fila: FilaCatalogo): string {
+  return UNIDAD_CORTA[fila.unidadMedida as UnidadMedida] ?? ''
 }
 </script>
 
@@ -445,7 +478,7 @@ function formatearMoneda(valor: string): string {
               class="boton-icono boton-icono-peligro"
               :disabled="row.usos > 0"
               title="Eliminar"
-              @click="solicitarEliminar(row)"
+              @click="eliminarElemento(row)"
             >
               <Trash2 :size="18" />
             </button>
@@ -462,25 +495,18 @@ function formatearMoneda(valor: string): string {
     >
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <template v-for="campo in esquema.campos" :key="campo.key">
+          <!-- CAM-015: encabezados que agrupan contacto y domicilio -->
+          <h4 v-if="campo.tipo === 'seccion'" class="titulo-seccion sm:col-span-2">
+            {{ campo.label }}
+          </h4>
           <SelectField
-            v-if="campo.tipo === 'unidad'"
+            v-else-if="campo.tipo === 'unidad'"
             v-model="formulario[campo.key]"
             :label="campo.label"
             :required="campo.obligatorio"
             :error="errores[campo.key] ?? ''"
             placeholder="Elige una unidad"
             :options="opcionesUnidad"
-            :class="campo.anchoMedio ? '' : 'sm:col-span-2'"
-          />
-          <SelectField
-            v-else-if="campo.tipo === 'tipoMaterial'"
-            v-model="formulario[campo.key]"
-            :label="campo.label"
-            :required="campo.obligatorio"
-            :error="errores[campo.key] ?? ''"
-            placeholder="Elige un tipo"
-            :options="opcionesTipoMaterial"
-            :help-text="opcionesTipoMaterial.length === 0 ? 'Primero agrega un tipo en la pestaña «Tipos de material».' : ''"
             :class="campo.anchoMedio ? '' : 'sm:col-span-2'"
           />
           <TextField
@@ -530,20 +556,14 @@ function formatearMoneda(valor: string): string {
       >
         <template #cell-fecha="{ row }">{{ formatearFecha(row.fecha) }}</template>
         <template #cell-proveedor="{ row }">{{ row.proveedor.nombre }}</template>
+        <template #cell-cantidad="{ row }">
+          {{ Number(row.cantidad) }} {{ historialDe ? unidadCortaDe(historialDe) : '' }}
+        </template>
         <template #cell-costoUnitario="{ row }">
           <strong>{{ formatearMoneda(row.costoUnitario) }}</strong>
         </template>
       </DataTable>
     </BaseModal>
-
-    <ConfirmDialog
-      :abierto="eliminando !== null"
-      titulo="Confirmar eliminación"
-      :mensaje="`¿Deseas eliminar «${eliminando?.nombre}» del catálogo? Esta acción no se puede deshacer.`"
-      :procesando="borrando"
-      @confirmar="confirmarEliminar"
-      @cancelar="eliminando = null"
-    />
   </div>
 </template>
 
@@ -565,6 +585,15 @@ function formatearMoneda(valor: string): string {
   border-color: var(--green-700);
   background: var(--green-700);
   color: var(--cream-50);
+}
+.titulo-seccion {
+  margin: 6px 0 0;
+  padding-bottom: 6px;
+  border-bottom: 1.5px solid var(--cream-300);
+  font: 700 13px / 1 var(--font-sans);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--clay-500);
 }
 .boton-icono {
   display: inline-flex;

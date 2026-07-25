@@ -6,3 +6,4 @@ export const authRouter = Router();
 
 authRouter.post("/login", authController.login);
 authRouter.get("/me", requireAuth, authController.me);
+authRouter.put("/perfil", requireAuth, authController.actualizarPerfil);

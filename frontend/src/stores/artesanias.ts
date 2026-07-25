@@ -64,8 +64,9 @@ export const useArtesaniasStore = defineStore('artesanias', () => {
     return api.put<Artesania>(`/artesanias/${id}`, datos)
   }
 
-  async function eliminar(id: string): Promise<void> {
-    await api.del(`/artesanias/${id}`)
+  /** CAM-013: baja lógica con justificación obligatoria. */
+  async function eliminar(id: string, motivo: string): Promise<void> {
+    await api.del(`/artesanias/${id}`, { motivo })
     await cargar()
   }
 
@@ -83,6 +84,14 @@ export const useArtesaniasStore = defineStore('artesanias', () => {
 
   function eliminarFoto(id: string, idFoto: string): Promise<void> {
     return api.del(`/artesanias/${id}/fotos/${idFoto}`)
+  }
+
+  /** CAM-014: revierte la eliminación de una fotografía (acción «Deshacer»). */
+  function restaurarFoto(
+    id: string,
+    datos: { rutaArchivo: string; esPrincipal: boolean },
+  ): Promise<FotoArtesania> {
+    return api.post<FotoArtesania>(`/artesanias/${id}/fotos/restaurar`, datos)
   }
 
   // Sprint 3 — costeo (HU-8, HU-9)
@@ -147,6 +156,7 @@ export const useArtesaniasStore = defineStore('artesanias', () => {
     subirFotos,
     marcarFotoPrincipal,
     eliminarFoto,
+    restaurarFoto,
     guardarInsumos,
     guardarCosteo,
     asignarPrecio,

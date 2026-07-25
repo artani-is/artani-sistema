@@ -44,7 +44,8 @@ const id = useId()
         :disabled="disabled"
         :required="required"
       >
-        <option value="" disabled>{{ placeholder }}</option>
+        <!-- CAM-008: la opción por defecto es seleccionable para poder limpiar el filtro -->
+        <option value="">{{ placeholder }}</option>
         <option v-for="opcion in options" :key="opcion.value" :value="opcion.value">
           {{ opcion.label }}
         </option>
