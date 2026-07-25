@@ -3,7 +3,7 @@ import { defineStore } from 'pinia'
 import { api } from '@/lib/api'
 import type { Compra } from '@/types'
 
-export interface NuevaCompra {
+export interface DatosCompra {
   idProveedor: string
   folioNota?: string
   fecha?: string
@@ -23,15 +23,24 @@ export const useComprasStore = defineStore('compras', () => {
     }
   }
 
-  async function crear(datos: NuevaCompra): Promise<void> {
-    await api.post('/compras', datos)
+  async function crear(datos: DatosCompra): Promise<Compra> {
+    const compra = await api.post<Compra>('/compras', datos)
+    await cargar()
+    return compra
+  }
+
+  /** CAM-010: corrección de una compra capturada con datos erróneos. */
+  async function actualizar(id: string, datos: DatosCompra): Promise<Compra> {
+    const compra = await api.put<Compra>(`/compras/${id}`, datos)
+    await cargar()
+    return compra
+  }
+
+  /** CAM-012: borrado lógico; el motivo es obligatorio y queda registrado. */
+  async function eliminar(id: string, motivo: string): Promise<void> {
+    await api.del(`/compras/${id}`, { motivo })
     await cargar()
   }
 
-  async function eliminar(id: string): Promise<void> {
-    await api.del(`/compras/${id}`)
-    await cargar()
-  }
-
-  return { compras, cargando, cargar, crear, eliminar }
+  return { compras, cargando, cargar, crear, actualizar, eliminar }
 })

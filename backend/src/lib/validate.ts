@@ -39,6 +39,19 @@ export function decimalPositivoDe(
   return String(numero);
 }
 
+/** Decimal >= 0 (HU-8 permite horas/tarifa en cero sin bloquear). */
+export function decimalNoNegativoDe(
+  body: Record<string, unknown>,
+  campo: string,
+): string {
+  const valor = body[campo];
+  const numero = typeof valor === "string" ? Number(valor) : valor;
+  if (typeof numero !== "number" || !Number.isFinite(numero) || numero < 0) {
+    throw new ApiError(400, `El campo "${campo}" debe ser un número mayor o igual a cero`);
+  }
+  return String(numero);
+}
+
 /** Extrae un parámetro de ruta como string (Express 5 lo tipa como string | string[]). */
 export function paramDe(params: Record<string, unknown>, nombre: string): string {
   const valor = params[nombre];

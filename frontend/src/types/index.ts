@@ -14,12 +14,6 @@ export interface Sesion {
   artesano: Artesano
 }
 
-export interface TipoMaterial {
-  idTipoMaterial: string
-  nombre: string
-  _count?: { materiasPrimas: number }
-}
-
 export interface TecnicaArtesanal {
   idTecnica: string
   nombre: string
@@ -48,11 +42,17 @@ export interface Galeria {
   pais: string
 }
 
+/** CAM-015: domicilio completo; todos los campos salvo el nombre son opcionales. */
 export interface Proveedor {
   idProveedor: string
   nombre: string
   telefono: string | null
   correo: string | null
+  calle: string | null
+  numero: string | null
+  numeroInterior: string | null
+  colonia: string | null
+  codigoPostal: string | null
   ciudad: string | null
   estado: string | null
   _count?: { compras: number }
@@ -79,12 +79,22 @@ export const ETIQUETA_UNIDAD: Record<UnidadMedida, string> = {
   PIEZA: 'Piezas (pza)',
 }
 
+/** CAM-011: etiqueta abreviada de la unidad para tablas y la calculadora de costeo. */
+export const UNIDAD_CORTA: Record<UnidadMedida, string> = {
+  KG: 'kg',
+  GRAMO: 'g',
+  METRO: 'm',
+  CENTIMETRO: 'cm',
+  LITRO: 'l',
+  MILILITRO: 'ml',
+  PIEZA: 'pieza',
+}
+
+/** CAM-009: el insumo se identifica solo por nombre y unidad de medida. */
 export interface MateriaPrima {
   idMateria: string
   nombre: string
   unidadMedida: UnidadMedida
-  idTipoMaterial: string
-  tipoMaterial?: TipoMaterial
   _count?: { detallesCompra: number }
 }
 
@@ -147,4 +157,110 @@ export interface Artesania {
   tecnica?: TecnicaArtesanal
   categoria?: CategoriaPieza
   fotos: FotoArtesania[]
+  insumos?: InsumoArtesania[]
+  certificado?: CertificadoQr | null
+  venta?: Venta | null
+  /** Solo la consignación ACTIVA (si existe) viene incluida desde la API. */
+  consignaciones?: Consignacion[]
+}
+
+// Sprint 3 — costeo
+
+export interface InsumoArtesania {
+  idInsumoArt: string
+  cantidadUsada: string
+  costoUnitarioUso: string
+  idArtesania: string
+  idMateria: string
+  materiaPrima?: MateriaPrima
+}
+
+// Sprint 4 — certificación digital
+
+export interface VerificacionCertificado {
+  idVerificacion: string
+  fechaHora: string
+  idCertificado: string
+}
+
+export interface CertificadoQr {
+  idCertificado: string
+  fechaEmision: string
+  rutaPdf: string
+  idArtesania: string
+  rutaQr?: string
+  urlVerificacion?: string
+  verificaciones?: VerificacionCertificado[]
+  _count?: { verificaciones: number }
+}
+
+/** Derivados del certificado (la PK es el token público del QR). */
+export function rutaQrDe(certificado: CertificadoQr): string {
+  return certificado.rutaQr ?? `/uploads/certificados/${certificado.idCertificado}-qr.png`
+}
+
+export interface VerificacionPublica {
+  idCertificado: string
+  fechaEmision: string
+  /** CAM-013: BAJA = pieza auténtica pero dada de baja del registro del taller. */
+  estado: 'VALIDO' | 'BAJA'
+  pieza: {
+    nombre: string
+    descripcion: string | null
+    tecnica: string
+    categoria: string
+    foto: string | null
+  }
+  artesano: {
+    nombre: string
+    taller: string | null
+  }
+}
+
+// Sprint 5 — consignación y ventas
+
+export const ESTADOS_CONSIGNACION = ['ACTIVA', 'DEVUELTA', 'VENDIDA'] as const
+export type EstadoConsignacion = (typeof ESTADOS_CONSIGNACION)[number]
+
+export const ETIQUETA_ESTADO_CONSIGNACION: Record<EstadoConsignacion, string> = {
+  ACTIVA: 'Activa',
+  DEVUELTA: 'Devuelta',
+  VENDIDA: 'Vendida',
+}
+
+export interface Consignacion {
+  idConsignacion: string
+  fechaSalida: string
+  fechaRetorno: string | null
+  estado: EstadoConsignacion
+  porcentajeComision: string | null
+  idArtesania: string
+  idGaleria: string
+  galeria?: Pick<Galeria, 'idGaleria' | 'nombre'>
+  artesania?: Pick<Artesania, 'idArtesania' | 'nombre' | 'estado'>
+}
+
+export interface Venta {
+  idVenta: string
+  fechaVenta: string
+  montoCobrado: string
+  idArtesania: string
+  idConsignacion: string | null
+  canal?: 'DIRECTA' | 'CONSIGNACION'
+  artesania?: Pick<Artesania, 'idArtesania' | 'nombre'>
+  consignacion?: Consignacion | null
+}
+
+// Sprint 6 — reportes
+
+/** Bitácora de generación; los totales son derivados (no se almacenan). */
+export interface ReporteVentas {
+  idReporte: string
+  fechaGeneracion: string
+  fechaInicio: string
+  fechaFin: string
+  rutaExportacion: string | null
+  idArtesano: string
+  totalVentas: number
+  totalPiezas: number
 }

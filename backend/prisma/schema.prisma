@@ -15,6 +15,14 @@ enum EstadoArtesania {
   @@map("estado_artesania")
 }
 
+enum EstadoConsignacion {
+  ACTIVA
+  DEVUELTA
+  VENDIDA
+
+  @@map("estado_consignacion")
+}
+
 enum UnidadMedida {
   KG
   GRAMO
@@ -43,6 +51,7 @@ model Artesano {
   intentosAcceso IntentoAcceso[]
   compras        Compra[]
   artesanias     Artesania[]
+  reportes       ReporteVentas[]
 
   @@map("artesano")
 }
@@ -60,15 +69,7 @@ model IntentoAcceso {
 }
 
 // SPRINT 1 catálogos maestros
-
-model TipoMaterial {
-  idTipoMaterial String @id @default(dbgenerated("gen_random_uuid()")) @map("id_tipo_material") @db.Uuid
-  nombre         String @unique @db.VarChar(100)
-
-  materiasPrimas MateriaPrima[]
-
-  @@map("tipo_material")
-}
+// CAM-009: el catálogo TIPO_MATERIAL se eliminó; el insumo se identifica por nombre y unidad.
 
 model TecnicaArtesanal {
   idTecnica   String  @id @default(dbgenerated("gen_random_uuid()")) @map("id_tecnica") @db.Uuid
@@ -104,16 +105,24 @@ model Galeria {
   estado         String? @db.VarChar(100)
   pais           String  @default("Mexico") @db.VarChar(60)
 
+  consignaciones Consignacion[]
+
   @@map("galeria")
 }
 
+/// CAM-015: domicilio completo, con la misma estructura que GALERIA; solo nombre es obligatorio
 model Proveedor {
-  idProveedor String  @id @default(dbgenerated("gen_random_uuid()")) @map("id_proveedor") @db.Uuid
-  nombre      String  @db.VarChar(150)
-  telefono    String? @db.VarChar(20)
-  correo      String? @db.Citext
-  ciudad      String? @db.VarChar(100)
-  estado      String? @db.VarChar(100)
+  idProveedor    String  @id @default(dbgenerated("gen_random_uuid()")) @map("id_proveedor") @db.Uuid
+  nombre         String  @db.VarChar(150)
+  telefono       String? @db.VarChar(20)
+  correo         String? @db.Citext
+  calle          String? @db.VarChar(100)
+  numero         String? @db.VarChar(10) // admite valores no numéricos como "S/N"
+  numeroInterior String? @map("numero_interior") @db.VarChar(10)
+  colonia        String? @db.VarChar(100)
+  codigoPostal   String? @map("codigo_postal") @db.VarChar(10)
+  ciudad         String? @db.VarChar(100)
+  estado         String? @db.VarChar(100)
 
   compras Compra[]
 
@@ -123,43 +132,49 @@ model Proveedor {
 // SPRINT 1 materia prima y compras
 
 model MateriaPrima {
-  idMateria      String       @id @default(dbgenerated("gen_random_uuid()")) @map("id_materia") @db.Uuid
-  nombre         String       @db.VarChar(150)
-  unidadMedida   UnidadMedida @map("unidad_medida")
-  idTipoMaterial String       @map("id_tipo_material") @db.Uuid
-  tipoMaterial   TipoMaterial @relation(fields: [idTipoMaterial], references: [idTipoMaterial], onDelete: Restrict)
+  idMateria    String       @id @default(dbgenerated("gen_random_uuid()")) @map("id_materia") @db.Uuid
+  nombre       String       @db.VarChar(150)
+  unidadMedida UnidadMedida @map("unidad_medida")
 
   detallesCompra DetalleCompra[]
   insumos        InsumoArtesania[]
 
-  @@index([idTipoMaterial])
   @@map("materia_prima")
 }
 
+/// CAM-012: borrado lógico; el motivo de la eliminación se conserva junto al registro
 model Compra {
-  idCompra    String    @id @default(dbgenerated("gen_random_uuid()")) @map("id_compra") @db.Uuid
-  fecha       DateTime  @default(dbgenerated("CURRENT_DATE")) @db.Date
-  folioNota   String?   @map("folio_nota") @db.VarChar(50)
-  idProveedor String    @map("id_proveedor") @db.Uuid
-  proveedor   Proveedor @relation(fields: [idProveedor], references: [idProveedor], onDelete: Restrict)
-  idArtesano  String    @map("id_artesano") @db.Uuid
-  artesano    Artesano  @relation(fields: [idArtesano], references: [idArtesano], onDelete: Restrict)
+  idCompra          String    @id @default(dbgenerated("gen_random_uuid()")) @map("id_compra") @db.Uuid
+  fecha             DateTime  @default(dbgenerated("CURRENT_DATE")) @db.Date
+  folioNota         String?   @map("folio_nota") @db.VarChar(50)
+  eliminado         Boolean   @default(false)
+  motivoEliminacion String?   @map("motivo_eliminacion") @db.Text
+  fechaEliminacion  DateTime? @map("fecha_eliminacion") @db.Timestamptz(6)
+  idProveedor       String    @map("id_proveedor") @db.Uuid
+  proveedor         Proveedor @relation(fields: [idProveedor], references: [idProveedor], onDelete: Restrict)
+  idArtesano        String    @map("id_artesano") @db.Uuid
+  artesano          Artesano  @relation(fields: [idArtesano], references: [idArtesano], onDelete: Restrict)
 
   detalles DetalleCompra[]
 
   @@index([idProveedor])
   @@index([idArtesano])
+  @@index([eliminado])
   @@map("compra")
 }
 
+/// CAM-012: borrado lógico en paralelo con COMPRA (se marcan en la misma transacción)
 model DetalleCompra {
-  idDetalle     String       @id @default(dbgenerated("gen_random_uuid()")) @map("id_detalle") @db.Uuid
-  cantidad      Decimal      @db.Decimal(12, 3) // CHECK > 0 en la migración
-  costoUnitario Decimal      @map("costo_unitario") @db.Decimal(10, 2) // CHECK > 0 en la migración
-  idCompra      String       @map("id_compra") @db.Uuid
-  compra        Compra       @relation(fields: [idCompra], references: [idCompra], onDelete: Cascade)
-  idMateria     String       @map("id_materia") @db.Uuid
-  materiaPrima  MateriaPrima @relation(fields: [idMateria], references: [idMateria], onDelete: Restrict)
+  idDetalle         String       @id @default(dbgenerated("gen_random_uuid()")) @map("id_detalle") @db.Uuid
+  cantidad          Decimal      @db.Decimal(12, 3) // CHECK > 0 en la migración
+  costoUnitario     Decimal      @map("costo_unitario") @db.Decimal(10, 2) // CHECK > 0 en la migración
+  eliminado         Boolean      @default(false)
+  motivoEliminacion String?      @map("motivo_eliminacion") @db.Text
+  fechaEliminacion  DateTime?    @map("fecha_eliminacion") @db.Timestamptz(6)
+  idCompra          String       @map("id_compra") @db.Uuid
+  compra            Compra       @relation(fields: [idCompra], references: [idCompra], onDelete: Cascade)
+  idMateria         String       @map("id_materia") @db.Uuid
+  materiaPrima      MateriaPrima @relation(fields: [idMateria], references: [idMateria], onDelete: Restrict)
 
   @@index([idCompra])
   @@index([idMateria, idCompra])
@@ -168,6 +183,8 @@ model DetalleCompra {
 
 // SPRINT 2 inventario
 
+/// CAM-013: borrado lógico; una pieza dada de baja conserva fotos, costeo y certificado,
+/// y su código QR sigue resolviendo en la vista pública con la leyenda de baja.
 model Artesania {
   idArtesania     String           @id @default(dbgenerated("gen_random_uuid()")) @map("id_artesania") @db.Uuid
   nombre          String           @db.VarChar(200)
@@ -178,6 +195,9 @@ model Artesania {
   horasTrabajadas Decimal?         @map("horas_trabajadas") @db.Decimal(6, 2)
   tarifaHora      Decimal?         @map("tarifa_hora") @db.Decimal(10, 2)
   precioVenta     Decimal?         @map("precio_venta") @db.Decimal(10, 2)
+  eliminado         Boolean   @default(false)
+  motivoEliminacion String?   @map("motivo_eliminacion") @db.Text
+  fechaEliminacion  DateTime? @map("fecha_eliminacion") @db.Timestamptz(6)
   idArtesano      String           @map("id_artesano") @db.Uuid
   artesano        Artesano         @relation(fields: [idArtesano], references: [idArtesano], onDelete: Restrict)
   idTecnica       String           @map("id_tecnica") @db.Uuid
@@ -185,14 +205,17 @@ model Artesania {
   idCategoria     String           @map("id_categoria") @db.Uuid
   categoria       CategoriaPieza   @relation(fields: [idCategoria], references: [idCategoria], onDelete: Restrict)
 
-  fotos       FotoArtesania[]
-  insumos     InsumoArtesania[]
-  certificado CertificadoQr?
+  fotos          FotoArtesania[]
+  insumos        InsumoArtesania[]
+  certificado    CertificadoQr?
+  consignaciones Consignacion[]
+  venta          Venta?
 
   @@index([idArtesano])
   @@index([idTecnica])
   @@index([idCategoria])
   @@index([estado])
+  @@index([eliminado])
   @@map("artesania")
 }
 
@@ -247,4 +270,54 @@ model VerificacionCertificado {
 
   @@index([idCertificado, fechaHora])
   @@map("verificacion_certificado")
+}
+
+// SPRINT 5 consignación y ventas
+
+model Consignacion {
+  idConsignacion     String             @id @default(dbgenerated("gen_random_uuid()")) @map("id_consignacion") @db.Uuid
+  fechaSalida        DateTime           @default(dbgenerated("CURRENT_DATE")) @map("fecha_salida") @db.Date
+  fechaRetorno       DateTime?          @map("fecha_retorno") @db.Date // CHECK >= fecha_salida en la migración
+  estado             EstadoConsignacion @default(ACTIVA) @map("estado_consig")
+  porcentajeComision Decimal?           @map("porcentaje_comision") @db.Decimal(5, 2) // CHECK 0-100 en la migración
+  idArtesania        String             @map("id_artesania") @db.Uuid
+  artesania          Artesania          @relation(fields: [idArtesania], references: [idArtesania], onDelete: Restrict)
+  idGaleria          String             @map("id_galeria") @db.Uuid
+  galeria            Galeria            @relation(fields: [idGaleria], references: [idGaleria], onDelete: Restrict)
+
+  venta Venta?
+
+  @@index([idArtesania])
+  @@index([idGaleria])
+  @@index([estado])
+  @@map("consignacion")
+}
+
+/// el canal de venta se deriva: idConsignacion null => directa
+model Venta {
+  idVenta        String        @id @default(dbgenerated("gen_random_uuid()")) @map("id_venta") @db.Uuid
+  fechaVenta     DateTime      @default(dbgenerated("CURRENT_DATE")) @map("fecha_venta") @db.Date
+  montoCobrado   Decimal       @map("monto_cobrado") @db.Decimal(10, 2) // CHECK > 0 en la migración
+  idArtesania    String        @unique @map("id_artesania") @db.Uuid
+  artesania      Artesania     @relation(fields: [idArtesania], references: [idArtesania], onDelete: Restrict)
+  idConsignacion String?       @unique @map("id_consignacion") @db.Uuid
+  consignacion   Consignacion? @relation(fields: [idConsignacion], references: [idConsignacion], onDelete: Restrict)
+
+  @@map("venta")
+}
+
+// SPRINT 6 reportes
+
+/// bitácora de generación; los totales son derivados (agregados sobre VENTA)
+model ReporteVentas {
+  idReporte       String   @id @default(dbgenerated("gen_random_uuid()")) @map("id_reporte") @db.Uuid
+  fechaGeneracion DateTime @default(now()) @map("fecha_generacion") @db.Timestamptz(6)
+  fechaInicio     DateTime @map("fecha_inicio") @db.Date
+  fechaFin        DateTime @map("fecha_fin") @db.Date // CHECK >= fecha_inicio en la migración
+  rutaExportacion String?  @map("ruta_exportacion") @db.VarChar(300)
+  idArtesano      String   @map("id_artesano") @db.Uuid
+  artesano        Artesano @relation(fields: [idArtesano], references: [idArtesano], onDelete: Cascade)
+
+  @@index([idArtesano, fechaGeneracion])
+  @@map("reporte_ventas")
 }

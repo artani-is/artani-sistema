@@ -82,6 +82,24 @@ export async function login(correo: string, contrasena: string): Promise<SesionA
   };
 }
 
+/**
+ * Actualiza los datos de contacto del taller (HU-17). El correo (usuario de
+ * acceso) no es editable desde esta pantalla.
+ */
+export async function actualizarPerfil(
+  idArtesano: string,
+  datos: {
+    nombres: string;
+    apellidoPaterno: string;
+    apellidoMaterno: string | null;
+    telefono: string | null;
+    nombreTaller: string | null;
+  },
+) {
+  await prisma.artesano.update({ where: { idArtesano }, data: datos });
+  return perfil(idArtesano);
+}
+
 export async function perfil(idArtesano: string) {
   const artesano = await prisma.artesano.findUnique({
     where: { idArtesano },
