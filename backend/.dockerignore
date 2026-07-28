@@ -1,0 +1,12 @@
+node_modules
+dist
+uploads
+tests
+.env
+.env.*
+!.env.example
+src/generated
+*.tsbuildinfo
+vitest.config.ts
+npm-debug.log*
+.DS_Store
