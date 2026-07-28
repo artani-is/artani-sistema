@@ -1,0 +1,12 @@
+{"rnf":"RNF_003","descripcion":"Cálculo del precio sugerido","unidad":"ms","muestras":12,"promedio":32.25,"maximo":51.86,"minimo":27.95,"umbral":3000}
+{"rnf":"RNF_003","descripcion":"Generación del certificado PDF (QR + PDF)","unidad":"ms","muestras":12,"promedio":87.73,"maximo":175.47,"minimo":61.38,"umbral":3000}
+{"rnf":"RNF_003","descripcion":"Generación del reporte de ventas en PDF","unidad":"ms","muestras":12,"promedio":31.79,"maximo":42.14,"minimo":26.43,"umbral":3000}
+{"rnf":"RNF_003","descripcion":"Verificación pública del QR","unidad":"ms","muestras":12,"promedio":14.25,"maximo":18.7,"minimo":12.72,"umbral":3000}
+{"rnf":"RNF_007","descripcion":"Consulta filtrada del inventario con 10035 piezas","unidad":"ms","muestras":12,"promedio":68.02,"maximo":110.52,"minimo":51.05,"umbral":3000}
+{"rnf":"RNF_007","descripcion":"Conteo de piezas disponibles con 10035 piezas","unidad":"ms","muestras":12,"promedio":4.97,"maximo":5.94,"minimo":4.14,"umbral":3000}
+{"rnf":"RNF_003","descripcion":"Cálculo del precio sugerido","unidad":"ms","muestras":12,"promedio":31.91,"maximo":52.09,"minimo":26.34,"umbral":3000}
+{"rnf":"RNF_003","descripcion":"Generación del certificado PDF (QR + PDF)","unidad":"ms","muestras":12,"promedio":83.95,"maximo":156.21,"minimo":62.17,"umbral":3000}
+{"rnf":"RNF_003","descripcion":"Generación del reporte de ventas en PDF","unidad":"ms","muestras":12,"promedio":35.47,"maximo":55.93,"minimo":27.52,"umbral":3000}
+{"rnf":"RNF_003","descripcion":"Verificación pública del QR","unidad":"ms","muestras":12,"promedio":15.03,"maximo":22.95,"minimo":12.37,"umbral":3000}
+{"rnf":"RNF_007","descripcion":"Consulta filtrada del inventario con 10035 piezas","unidad":"ms","muestras":12,"promedio":65.97,"maximo":102.95,"minimo":49.85,"umbral":3000}
+{"rnf":"RNF_007","descripcion":"Conteo de piezas disponibles con 10035 piezas","unidad":"ms","muestras":12,"promedio":5.31,"maximo":8.64,"minimo":4.16,"umbral":3000}
