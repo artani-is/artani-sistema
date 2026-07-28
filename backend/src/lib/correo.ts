@@ -54,7 +54,22 @@ const transporteResend: Transporte = async (correo) => {
   }
 };
 
-let transporteActual: Transporte = transporteResend;
+/**
+ * Transporte de desarrollo: escribe el correo en la salida estándar en lugar de
+ * enviarlo. Se activa con CORREO_TRANSPORTE=consola y existe para poder recorrer
+ * el flujo sin una cuenta de Resend. Nunca debe usarse en producción.
+ */
+const transporteConsola: Transporte = async (correo) => {
+  console.info(
+    `[correo:consola] para=${correo.para} asunto="${correo.asunto}"\n${correo.texto}`,
+  );
+};
+
+function transportePorEntorno(): Transporte {
+  return process.env.CORREO_TRANSPORTE === "consola" ? transporteConsola : transporteResend;
+}
+
+let transporteActual: Transporte = transportePorEntorno();
 
 /** Sustituye el transporte (solo para pruebas); devuelve el anterior. */
 export function usarTransporte(nuevo: Transporte): Transporte {
@@ -64,7 +79,7 @@ export function usarTransporte(nuevo: Transporte): Transporte {
 }
 
 export function restablecerTransporte(): void {
-  transporteActual = transporteResend;
+  transporteActual = transportePorEntorno();
 }
 
 export function enviarCorreo(correo: Correo): Promise<void> {

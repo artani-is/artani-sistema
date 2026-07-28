@@ -78,6 +78,8 @@ nano .env
 | `POSTGRES_PASSWORD` | **Tú — genérala** | `openssl rand -base64 32` |
 | `JWT_SECRET` | **Tú — genérala** | `openssl rand -base64 48` |
 | `JWT_EXPIRES_IN` | Opcional | Vigencia del token. Por omisión `8h` |
+| `RESEND_API_KEY` | **Sí** | API key de Resend (https://resend.com/api-keys). Sin ella, la recuperación de contraseña no puede enviar correo |
+| `CORREO_REMITENTE` | Opcional | Por omisión `Artani <no-reply@artani.app>`. El dominio debe estar **verificado** en tu cuenta de Resend |
 | `TZ` | Opcional | Por omisión `America/Mexico_City` |
 
 `DATABASE_URL`, `PUBLIC_BASE_URL` y `CORS_ORIGIN` **no se definen a mano**: el
@@ -200,6 +202,12 @@ history -d $(history 1)   # bash
 > El repositorio incluye además `pnpm seed`, una semilla de **desarrollo** con
 > credenciales conocidas y publicadas. No la ejecutes en el droplet.
 
+> **Solo para desarrollo:** con `CORREO_TRANSPORTE=consola` los correos se
+> escriben en la salida del servidor en lugar de enviarse, lo que permite
+> recorrer la recuperación de contraseña sin cuenta de Resend.
+> `docker-compose.prod.yml` no define esa variable; no la agregues en el droplet
+> o el artesano nunca recibirá el enlace.
+
 ---
 
 ## 6. Verificar el despliegue
@@ -299,6 +307,14 @@ pero no puede saber si una cadena vacía es válida.
 **Error `required variable X is missing a value` al hacer `up`.** Falta una
 variable obligatoria en `.env`. El mensaje indica cuál; es una salvaguarda
 deliberada para que ningún secreto tome un valor por omisión.
+
+**El artesano no recibe el correo de recuperación.** Revisa los logs de la API
+(`docker compose -f docker-compose.prod.yml logs backend`): un fallo de envío se
+registra como `[recuperacion] no se pudo enviar el correo`. Las causas
+habituales son una `RESEND_API_KEY` inválida o el dominio del remitente sin
+verificar en Resend. La respuesta al usuario es siempre la misma, exista o no la
+cuenta, para no revelar qué correos están registrados; por eso el diagnóstico
+solo aparece en los logs.
 
 **El QR del certificado apunta a `localhost`.** `PUBLIC_BASE_URL` se deriva de
 `DOMINIO`. Si emitiste certificados antes de configurar el dominio, esos QR

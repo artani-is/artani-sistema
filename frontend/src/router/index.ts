@@ -11,6 +11,19 @@ const router = createRouter({
       meta: { publica: true },
     },
     {
+      // Recuperación de contraseña (HU-1): ambas fuera del layout y sin sesión
+      path: '/recuperar',
+      name: 'recuperar-contrasena',
+      component: () => import('@/views/RecuperarContrasenaView.vue'),
+      meta: { publica: true },
+    },
+    {
+      path: '/restablecer/:token',
+      name: 'restablecer-contrasena',
+      component: () => import('@/views/RestablecerContrasenaView.vue'),
+      meta: { publica: true },
+    },
+    {
       // Ficha pública del certificado (HU-12): sin sesión, fuera del layout
       path: '/verificar/:id',
       name: 'verificacion-publica',

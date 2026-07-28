@@ -128,6 +128,21 @@ describe("HU-01 · Recuperación de contraseña — solicitud", () => {
     expect(enviados).toHaveLength(MAX_SOLICITUDES_POR_HORA + 1);
   });
 
+  it("caso de fallo: si el envío falla, no queda token vigente ni se delata la cuenta", async () => {
+    await crearArtesanoAutenticado();
+    usarTransporte(async () => {
+      throw new Error("Resend rechazó el envío (HTTP 403)");
+    });
+
+    const res = await api().post("/api/auth/recuperacion").send({ correo: CORREO_PRUEBA });
+
+    // La respuesta es la misma que en el resto de los casos: un error visible
+    // solo cuando la cuenta existe revelaría qué correos están registrados.
+    expect(res.status).toBe(202);
+    // Y el enlace no queda huérfano consumiendo el límite por hora
+    expect(await prisma.tokenRecuperacion.count()).toBe(0);
+  });
+
   it("caso de fallo: la solicitud sin correo devuelve 400", async () => {
     const res = await api().post("/api/auth/recuperacion").send({});
     expect(res.status).toBe(400);

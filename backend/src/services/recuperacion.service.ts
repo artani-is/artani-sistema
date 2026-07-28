@@ -3,7 +3,11 @@ import bcrypt from "bcryptjs";
 import { prisma } from "../lib/prisma.js";
 import { enviarCorreo } from "../lib/correo.js";
 import { ApiError } from "../middlewares/error.js";
-import { COSTE_BCRYPT, validarContrasena, ErrorAlta } from "../lib/artesanos.js";
+import {
+  COSTE_BCRYPT,
+  validarContrasena,
+  ErrorAlta,
+} from "../lib/artesanos.js";
 
 /**
  * Recuperación de contraseña por correo (HU-1).
@@ -26,14 +30,17 @@ export function hashDeToken(token: string): string {
 }
 
 function basePublica(): string {
-  return (process.env.PUBLIC_BASE_URL ?? "http://localhost:5173").replace(/\/$/, "");
+  return (process.env.PUBLIC_BASE_URL ?? "http://localhost:5173").replace(
+    /\/$/,
+    "",
+  );
 }
 
 export interface ResultadoSolicitud {
   /** Verdadero solo si se generó y envió un enlace. */
   enviado: boolean;
   /** Motivo por el que no se envió; para bitácora interna, no para el usuario. */
-  motivo?: "correo-desconocido" | "limite-alcanzado";
+  motivo?: "correo-desconocido" | "limite-alcanzado" | "envio-fallido";
 }
 
 /**
@@ -44,7 +51,9 @@ export interface ResultadoSolicitud {
  * están dados de alta (mismo criterio que el mensaje genérico del inicio de
  * sesión en la HU-1).
  */
-export async function solicitarRecuperacion(correo: string): Promise<ResultadoSolicitud> {
+export async function solicitarRecuperacion(
+  correo: string,
+): Promise<ResultadoSolicitud> {
   const artesano = await prisma.artesano.findUnique({
     where: { correo: correo.trim().toLowerCase() },
     select: { idArtesano: true, correo: true, nombres: true },
@@ -68,27 +77,44 @@ export async function solicitarRecuperacion(correo: string): Promise<ResultadoSo
   const token = randomBytes(32).toString("base64url");
   const fechaExpiracion = new Date(Date.now() + VIGENCIA_MINUTOS * 60 * 1000);
 
-  await prisma.tokenRecuperacion.create({
-    data: { tokenHash: hashDeToken(token), idArtesano: artesano.idArtesano, fechaExpiracion },
+  const registro = await prisma.tokenRecuperacion.create({
+    data: {
+      tokenHash: hashDeToken(token),
+      idArtesano: artesano.idArtesano,
+      fechaExpiracion,
+    },
   });
 
   const enlace = `${basePublica()}/restablecer/${token}`;
-  await enviarCorreo({
-    para: artesano.correo,
-    asunto: "Restablece tu contraseña de Artani",
-    texto:
-      `Hola ${artesano.nombres}:\n\n` +
-      `Recibimos una solicitud para restablecer la contraseña de tu cuenta de Artani.\n` +
-      `Abre este enlace para elegir una nueva. Vence en ${VIGENCIA_MINUTOS} minutos y ` +
-      `solo puede usarse una vez:\n\n${enlace}\n\n` +
-      `Si no fuiste tú, ignora este mensaje: tu contraseña actual sigue siendo válida.\n`,
-    html:
-      `<p>Hola ${artesano.nombres}:</p>` +
-      `<p>Recibimos una solicitud para restablecer la contraseña de tu cuenta de Artani.</p>` +
-      `<p><a href="${enlace}">Elegir una nueva contraseña</a></p>` +
-      `<p>El enlace vence en ${VIGENCIA_MINUTOS} minutos y solo puede usarse una vez.</p>` +
-      `<p>Si no fuiste tú, ignora este mensaje: tu contraseña actual sigue siendo válida.</p>`,
-  });
+  try {
+    await enviarCorreo({
+      para: artesano.correo,
+      asunto: "Restablece tu contraseña de Artani",
+      texto:
+        `Hola ${artesano.nombres}:\n\n` +
+        `Recibimos una solicitud para restablecer la contraseña de tu cuenta de Artani.\n` +
+        `Abre este enlace para elegir una nueva. Vence en ${VIGENCIA_MINUTOS} minutos y ` +
+        `solo puede usarse una vez:\n\n${enlace}\n\n` +
+        `Si no fuiste tú, ignora este mensaje: tu contraseña actual sigue siendo válida.\n`,
+      html:
+        `<p>Hola ${artesano.nombres}:</p>` +
+        `<p>Recibimos una solicitud para restablecer la contraseña de tu cuenta de Artani.</p>` +
+        `<p><a href="${enlace}">Elegir una nueva contraseña</a></p>` +
+        `<p>El enlace vence en ${VIGENCIA_MINUTOS} minutos y solo puede usarse una vez.</p>` +
+        `<p>Si no fuiste tú, ignora este mensaje: tu contraseña actual sigue siendo válida.</p>`,
+    });
+  } catch (err) {
+    // Si el proveedor de correo falla, el enlace no llegará a nadie: se retira
+    // para que no consuma el límite por hora ni quede vigente sin dueño.
+    await prisma.tokenRecuperacion.delete({
+      where: { idToken: registro.idToken },
+    });
+    // El fallo se registra para quien opera el sistema, pero la respuesta al
+    // usuario no cambia: un error visible solo cuando la cuenta existe
+    // revelaría qué correos están registrados.
+    console.error("[recuperacion] no se pudo enviar el correo:", err);
+    return { enviado: false, motivo: "envio-fallido" };
+  }
 
   return { enviado: true };
 }
@@ -115,14 +141,26 @@ export async function confirmarRecuperacion(
   try {
     validarContrasena(contrasenaNueva ?? "");
   } catch (err) {
-    throw new ApiError(400, err instanceof ErrorAlta ? err.message : "La contraseña no es válida");
+    throw new ApiError(
+      400,
+      err instanceof ErrorAlta ? err.message : "La contraseña no es válida",
+    );
   }
 
   const registro = await prisma.tokenRecuperacion.findUnique({
     where: { tokenHash: hashDeToken(token) },
-    select: { idToken: true, idArtesano: true, fechaExpiracion: true, fechaUso: true },
+    select: {
+      idToken: true,
+      idArtesano: true,
+      fechaExpiracion: true,
+      fechaUso: true,
+    },
   });
-  if (!registro || registro.fechaUso !== null || registro.fechaExpiracion <= new Date()) {
+  if (
+    !registro ||
+    registro.fechaUso !== null ||
+    registro.fechaExpiracion <= new Date()
+  ) {
     throw invalido;
   }
 
