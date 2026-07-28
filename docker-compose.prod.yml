@@ -1,0 +1,140 @@
+# ---------------------------------------------------------------------------
+# Despliegue de producción de Artani (droplet de DigitalOcean).
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Todas las variables sensibles se leen del archivo .env que acompaña a este
+# fichero. La sintaxis ${VARIABLE:?mensaje} aborta el arranque si falta alguna:
+# no existen valores por omisión para credenciales ni secretos.
+# ---------------------------------------------------------------------------
+name: artani-prod
+
+services:
+  db:
+    image: postgres:18
+    container_name: artani_db_prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?define POSTGRES_USER en .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD en .env}
+      POSTGRES_DB: ${POSTGRES_DB:?define POSTGRES_DB en .env}
+      TZ: ${TZ:-America/Mexico_City}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --data-checksums"
+    # Sin `ports`: la base de datos solo es accesible desde la red interna de
+    # Compose. Nada la publica hacia el exterior del droplet.
+    expose:
+      - "5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - interna
+
+  backend:
+    build:
+      context: ./backend
+      target: runtime
+    image: artani-backend:latest
+    container_name: artani_api_prod
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      # La cadena se arma con las mismas credenciales del servicio db para que no
+      # puedan quedar desincronizadas. Si la contraseña lleva caracteres
+      # reservados (@ : / ? # &), codifícala en porcentaje (ver README.deploy.md).
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
+      JWT_SECRET: ${JWT_SECRET:?define JWT_SECRET en .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      # El QR del certificado incrusta esta base pública, y CORS solo admite este
+      # origen: ambos deben ser el dominio real servido por Caddy.
+      PUBLIC_BASE_URL: https://${DOMINIO:?define DOMINIO en .env}
+      CORS_ORIGIN: https://${DOMINIO}
+      TZ: ${TZ:-America/Mexico_City}
+    # Sin `ports`: Caddy es el único punto de entrada desde internet.
+    expose:
+      - "3000"
+    volumes:
+      # Fotografías, certificados PDF y códigos QR deben sobrevivir a los
+      # redespliegues: sin este volumen se pierden al recrear el contenedor.
+      - uploads:/app/uploads
+    networks:
+      - interna
+
+  # Publica el build del cliente en el volumen que sirve Caddy y termina.
+  # No es un servicio de larga duración: `restart: "no"` es intencional.
+  frontend:
+    build:
+      context: ./frontend
+      target: runtime
+    image: artani-frontend:latest
+    container_name: artani_front_build
+    restart: "no"
+    volumes:
+      - frontend_dist:/publicar
+    networks:
+      - interna
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: artani_caddy
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_started
+      frontend:
+        condition: service_completed_successfully
+    environment:
+      DOMINIO: ${DOMINIO:?define DOMINIO en .env}
+      ACME_EMAIL: ${ACME_EMAIL:?define ACME_EMAIL en .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - frontend_dist:/srv/artani:ro
+      # Certificados de Let's Encrypt y claves de cuenta ACME: sin persistirlos
+      # se vuelven a emitir en cada arranque y se alcanzan los límites de tasa.
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - interna
+
+  # ---------------------------------------------------------------------------
+  # Migraciones de Prisma. NO se ejecuta con `up`: pertenece al perfil `tools` y
+  # solo corre cuando se invoca de forma explícita.
+  #   docker compose -f docker-compose.prod.yml --profile tools run --rm migrate
+  # ---------------------------------------------------------------------------
+  migrate:
+    build:
+      context: ./backend
+      target: migrator
+    image: artani-migrator:latest
+    profiles: ["tools"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
+    networks:
+      - interna
+
+volumes:
+  pgdata:
+  uploads:
+  frontend_dist:
+  caddy_data:
+  caddy_config:
+
+networks:
+  interna:
+    driver: bridge
