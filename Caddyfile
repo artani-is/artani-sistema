@@ -1,0 +1,66 @@
+# ---------------------------------------------------------------------------
+# Reverse proxy de Artani.
+#
+# Caddy solicita y renueva el certificado TLS de Let's Encrypt por sí solo, a
+# partir del nombre de dominio declarado. Requisitos para que el reto HTTP-01
+# funcione: el dominio debe apuntar (registro A/AAAA) a la IP del droplet y los
+# puertos 80 y 443 deben estar abiertos.
+#
+# DOMINIO y ACME_EMAIL llegan como variables de entorno desde Compose.
+# ---------------------------------------------------------------------------
+{
+	# Dirección de contacto para los avisos de expiración de Let's Encrypt.
+	email {$ACME_EMAIL}
+}
+
+{$DOMINIO} {
+	encode zstd gzip
+
+	# Vite pone un hash en el nombre de cada recurso de /assets: son inmutables.
+	# Todo lo demás que sirve la SPA se resuelve a index.html, y ese documento
+	# nunca debe cachearse o un despliegue nuevo no se vería. Los matchers se
+	# declaran aquí, a nivel de sitio, que es donde Caddy permite definirlos.
+	@estaticos path /assets/*
+	@sinCache not path /assets/*
+
+	# --- API ---------------------------------------------------------------
+	# El cliente llama a rutas relativas /api/*; aquí se enrutan a la API.
+	handle /api/* {
+		reverse_proxy backend:3000
+	}
+
+	# --- Archivos subidos --------------------------------------------------
+	# Fotografías de las piezas, certificados PDF y códigos QR los sirve la API
+	# desde su volumen, no el build del cliente.
+	handle /uploads/* {
+		reverse_proxy backend:3000
+	}
+
+	# --- Cliente (SPA) -----------------------------------------------------
+	# El router de Vue usa modo history: cualquier ruta desconocida debe
+	# devolver index.html para que la navegación directa a /verificar/:id o
+	# /artesanias/:id siga funcionando tras recargar la página.
+	handle {
+		root * /srv/artani
+		try_files {path} /index.html
+		file_server
+
+		header @estaticos Cache-Control "public, max-age=31536000, immutable"
+		header @sinCache Cache-Control "no-cache"
+	}
+
+	# --- Cabeceras de seguridad --------------------------------------------
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# Caddy anuncia su versión por omisión; se retira.
+		-Server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}
