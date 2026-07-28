@@ -1,0 +1,10 @@
+node_modules/
+# Artefactos transitorios de cada corrida (trazas, videos, capturas de fallos)
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+# Las capturas se regeneran en cada corrida (globalSetup vacía la carpeta).
+# La copia definitiva que ilustra el informe vive en el repositorio de la
+# documentación, en capitulo3/evidencias/e2e/.
+capturas/

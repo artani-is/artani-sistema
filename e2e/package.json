@@ -1,0 +1,17 @@
+{
+  "name": "e2e",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Pruebas de sistema (extremo a extremo) de Artani con Playwright",
+  "scripts": {
+    "test": "playwright test",
+    "report": "playwright show-report"
+  },
+  "packageManager": "pnpm@11.11.0",
+  "devDependencies": {
+    "@playwright/test": "^1.62.0",
+    "@types/pg": "^8.20.0",
+    "pg": "^8.22.0"
+  }
+}

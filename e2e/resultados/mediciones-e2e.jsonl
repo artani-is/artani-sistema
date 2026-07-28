@@ -1,0 +1,2 @@
+{"rnf":"RNF_003","descripcion":"Carga de la vista de inventario (navegador)","unidad":"ms","muestras":12,"promedio":527.17,"maximo":622,"minimo":473,"umbral":3000}
+{"rnf":"RNF_003","descripcion":"Verificación pública del QR (navegador)","unidad":"ms","muestras":12,"promedio":489.17,"maximo":897,"minimo":315,"umbral":3000}
