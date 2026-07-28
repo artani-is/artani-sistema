@@ -10,3 +10,9 @@
 {"rnf":"RNF_003","descripcion":"Verificación pública del QR","unidad":"ms","muestras":12,"promedio":15.03,"maximo":22.95,"minimo":12.37,"umbral":3000}
 {"rnf":"RNF_007","descripcion":"Consulta filtrada del inventario con 10035 piezas","unidad":"ms","muestras":12,"promedio":65.97,"maximo":102.95,"minimo":49.85,"umbral":3000}
 {"rnf":"RNF_007","descripcion":"Conteo de piezas disponibles con 10035 piezas","unidad":"ms","muestras":12,"promedio":5.31,"maximo":8.64,"minimo":4.16,"umbral":3000}
+{"rnf":"RNF_003","descripcion":"Cálculo del precio sugerido","unidad":"ms","muestras":12,"promedio":33.83,"maximo":54.39,"minimo":29.39,"umbral":3000}
+{"rnf":"RNF_003","descripcion":"Generación del certificado PDF (QR + PDF)","unidad":"ms","muestras":12,"promedio":86.54,"maximo":158.27,"minimo":64.78,"umbral":3000}
+{"rnf":"RNF_003","descripcion":"Generación del reporte de ventas en PDF","unidad":"ms","muestras":12,"promedio":31.95,"maximo":49.59,"minimo":27.12,"umbral":3000}
+{"rnf":"RNF_003","descripcion":"Verificación pública del QR","unidad":"ms","muestras":12,"promedio":14.02,"maximo":18.24,"minimo":12.25,"umbral":3000}
+{"rnf":"RNF_007","descripcion":"Consulta filtrada del inventario con 10035 piezas","unidad":"ms","muestras":12,"promedio":134.19,"maximo":455.74,"minimo":50.1,"umbral":3000}
+{"rnf":"RNF_007","descripcion":"Conteo de piezas disponibles con 10035 piezas","unidad":"ms","muestras":12,"promedio":3.65,"maximo":4.78,"minimo":3.08,"umbral":3000}

@@ -152,20 +152,53 @@ docker compose -f docker-compose.prod.yml --profile tools run --rm \
 
 ### Usuario inicial
 
-El sistema no tiene registro público: el artesano se crea en la base de datos.
-El repositorio incluye una semilla de demostración con credenciales conocidas,
-**pensada solo para desarrollo**. Para producción, crea el usuario con una
-contraseña propia:
+El sistema no tiene registro público: la cuenta del artesano se da de alta como
+tarea administrativa, mediante el script `seed:artesano`. No insertes el
+artesano directamente con `psql`: el script es el único camino que garantiza
+que la contraseña se guarde hasheada con bcrypt.
+
+**Forma interactiva** (recomendada: la contraseña no queda en el historial de
+la terminal):
 
 ```sh
-docker compose -f docker-compose.prod.yml exec backend node -e "
-const bcrypt = require('bcryptjs');
-bcrypt.hash(process.argv[1], 12).then(h => console.log(h));
-" 'LaContrasenaQueElijas'
+docker compose -f docker-compose.prod.yml exec backend pnpm seed:artesano
 ```
 
-Inserta el artesano con ese hash usando `psql` dentro del contenedor de la base
-de datos (ver sección 7).
+Pide los datos uno a uno y captura la contraseña oculta.
+
+**Forma no interactiva** (para automatizar). Define las variables y ejecuta:
+
+| Variable | Obligatoria | Contenido |
+|---|---|---|
+| `ARTESANO_CURP` | Sí | CURP de 18 caracteres |
+| `ARTESANO_NOMBRES` | Sí | Nombre o nombres |
+| `ARTESANO_APELLIDO_PATERNO` | Sí | Apellido paterno |
+| `ARTESANO_APELLIDO_MATERNO` | No | Apellido materno |
+| `ARTESANO_CORREO` | Sí | Correo con el que iniciará sesión |
+| `ARTESANO_TELEFONO` | No | Teléfono de contacto |
+| `ARTESANO_TALLER` | No | Nombre del taller |
+| `ARTESANO_CONTRASENA` | Sí | Mínimo 12 caracteres, con letras y números |
+
+```sh
+docker compose -f docker-compose.prod.yml exec \
+  -e ARTESANO_CURP=XXXX000000HXXXXX00 \
+  -e ARTESANO_NOMBRES='Nombre' \
+  -e ARTESANO_APELLIDO_PATERNO='Apellido' \
+  -e ARTESANO_CORREO='artesano@ejemplo.mx' \
+  -e ARTESANO_CONTRASENA='...' \
+  backend pnpm seed:artesano
+```
+
+El script valida los datos antes de tocar la base de datos, rechaza contraseñas
+débiles o cuentas duplicadas, y no imprime la contraseña en ningún momento. Si
+la pasaste por entorno, bórrala después del historial de tu terminal:
+
+```sh
+history -d $(history 1)   # bash
+```
+
+> El repositorio incluye además `pnpm seed`, una semilla de **desarrollo** con
+> credenciales conocidas y publicadas. No la ejecutes en el droplet.
 
 ---
 
