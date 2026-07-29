@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { prisma } from "../../src/lib/prisma.js";
 import { limpiarBaseDatos } from "../helpers/db.js";
 import { api, auth, crearArtesanoAutenticado, crearCatalogosBase, type ArtesanoPrueba } from "../helpers/api.js";
-import { PNG_1X1, JPG_1X1, pngDeTamano } from "../helpers/imagenes.js";
+import { PNG_1X1, JPG_1X1, pngDeTamano, pngDeDimensiones } from "../helpers/imagenes.js";
 
 let sesion: ArtesanoPrueba;
 let idTecnica: string;
@@ -162,7 +162,9 @@ describe("HU-07 · Fotografías de la pieza", () => {
 
     expect(res.status).toBe(201);
     expect(res.body).toHaveLength(2);
-    expect(res.body[0].rutaArchivo).toMatch(/^\/uploads\/.+\.png$/);
+    // Ya no se guarda el archivo original: se almacenan los dos derivados
+    expect(res.body[0].rutaWebp).toMatch(/^\/uploads\/.+\.webp$/);
+    expect(res.body[0].rutaJpeg).toMatch(/^\/uploads\/.+\.jpg$/);
   });
 
   it("CA: si no se marca ninguna, la primera fotografía cargada queda como principal", async () => {
@@ -219,43 +221,47 @@ describe("HU-07 · Fotografías de la pieza", () => {
     expect(res.body.error).toMatch(/PNG o JPG/i);
   });
 
-  it("CA (caso de fallo): rechaza archivos de más de 5 MB", async () => {
+  it("CA (caso de fallo): rechaza archivos de más de 8 MB de entrada", async () => {
     const pieza = await crearPieza();
 
     const res = await api()
       .post(`/api/artesanias/${pieza.idArtesania}/fotos`)
       .set(...auth(sesion))
-      .attach("fotos", pngDeTamano(5 * 1024 * 1024 + 1024), {
+      .attach("fotos", pngDeTamano(8 * 1024 * 1024 + 1024), {
         filename: "enorme.png",
         contentType: "image/png",
       });
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/máximo 5 MB/i);
+    expect(res.body.error).toMatch(/máximo 8 MB/i);
   });
 
-  it("CA (frontera): el umbral efectivo es 5 MiB exclusivo — 5242879 B se acepta, 5242880 B se rechaza", async () => {
+  it("CA (frontera): el umbral de entrada es 8 MiB exclusivo", async () => {
     const pieza = await crearPieza();
-    const MIB5 = 5 * 1024 * 1024;
+    const MIB8 = 8 * 1024 * 1024;
 
-    const justoDebajo = await api()
-      .post(`/api/artesanias/${pieza.idArtesania}/fotos`)
-      .set(...auth(sesion))
-      .attach("fotos", pngDeTamano(MIB5 - 1), { filename: "borde.png", contentType: "image/png" });
-    expect(justoDebajo.status).toBe(201);
-
+    // Justo en el límite se rechaza (multer lo corta antes de procesar la imagen)
     const enElLimite = await api()
       .post(`/api/artesanias/${pieza.idArtesania}/fotos`)
       .set(...auth(sesion))
-      .attach("fotos", pngDeTamano(MIB5), { filename: "limite.png", contentType: "image/png" });
+      .attach("fotos", pngDeTamano(MIB8), { filename: "limite.png", contentType: "image/png" });
     expect(enElLimite.status).toBe(400);
+    expect(enElLimite.body.error).toMatch(/máximo 8 MB/i);
+  });
 
-    // Un archivo de 5 MB decimales (5 000 000 B) queda holgadamente dentro del límite
-    const cincoMbDecimales = await api()
+  it("CA (caso de fallo): un archivo con extensión válida pero contenido dañado se rechaza", async () => {
+    const pieza = await crearPieza();
+
+    const res = await api()
       .post(`/api/artesanias/${pieza.idArtesania}/fotos`)
       .set(...auth(sesion))
-      .attach("fotos", pngDeTamano(5_000_000), { filename: "5mb.png", contentType: "image/png" });
-    expect(cincoMbDecimales.status).toBe(201);
+      .attach("fotos", Buffer.from("esto no es una imagen"), {
+        filename: "falsa.png",
+        contentType: "image/png",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/dañada|no es un archivo/i);
   });
 
   it("caso de fallo: subir fotografías a una pieza inexistente devuelve 404", async () => {

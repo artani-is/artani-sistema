@@ -16,6 +16,27 @@ export function pngDeTamano(bytes: number): Buffer {
   return Buffer.concat([PNG_1X1, relleno]);
 }
 
+/**
+ * Fotografía JPEG realista de las dimensiones indicadas: degradado con ruido,
+ * que se comprime de forma parecida a una fotografía real (a diferencia de un
+ * color plano, que comprimiría a unos pocos bytes y falsearía las mediciones).
+ */
+export async function fotoDePrueba(ancho: number, alto: number): Promise<Buffer> {
+  const { default: sharp } = await import("sharp");
+  const pixeles = Buffer.alloc(ancho * alto * 3);
+  for (let i = 0; i < pixeles.length; i += 3) {
+    const p = i / 3;
+    const x = p % ancho;
+    const y = Math.floor(p / ancho);
+    pixeles[i] = (120 + 80 * Math.sin(x / 50) + Math.random() * 60) & 255;
+    pixeles[i + 1] = (90 + 70 * Math.cos(y / 40) + Math.random() * 60) & 255;
+    pixeles[i + 2] = (70 + 60 * Math.sin((x + y) / 70) + Math.random() * 60) & 255;
+  }
+  return sharp(pixeles, { raw: { width: ancho, height: alto, channels: 3 } })
+    .jpeg({ quality: 95 })
+    .toBuffer();
+}
+
 // --- Codificador PNG mínimo, para generar imágenes de dimensiones conocidas ---
 
 const TABLA_CRC = (() => {
