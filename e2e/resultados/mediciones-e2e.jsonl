@@ -1,6 +1,0 @@
-{"rnf":"RNF_003","descripcion":"Carga de la vista de inventario (navegador)","unidad":"ms","muestras":12,"promedio":527.17,"maximo":622,"minimo":473,"umbral":3000}
-{"rnf":"RNF_003","descripcion":"Verificación pública del QR (navegador)","unidad":"ms","muestras":12,"promedio":489.17,"maximo":897,"minimo":315,"umbral":3000}
-{"rnf":"RNF_003","descripcion":"Carga de la vista de inventario (navegador)","unidad":"ms","muestras":12,"promedio":563.75,"maximo":679,"minimo":511,"umbral":3000}
-{"rnf":"RNF_003","descripcion":"Verificación pública del QR (navegador)","unidad":"ms","muestras":12,"promedio":551,"maximo":1059,"minimo":476,"umbral":3000}
-{"rnf":"RNF_003","descripcion":"Carga de la vista de inventario (navegador)","unidad":"ms","muestras":12,"promedio":496.58,"maximo":607,"minimo":88,"umbral":3000}
-{"rnf":"RNF_003","descripcion":"Verificación pública del QR (navegador)","unidad":"ms","muestras":12,"promedio":540.5,"maximo":924,"minimo":456,"umbral":3000}

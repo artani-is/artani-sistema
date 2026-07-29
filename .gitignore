@@ -36,3 +36,9 @@ nbproject/private/
 *.swp
 *.swo
 *~
+
+# Mediciones de RNF generadas por la suite de pruebas
+# Cada corrida las reescribe, así que versionarlas solo produce conflictos de
+# fusión. Las cifras que respaldan el informe se citan en el propio documento.
+backend/tests/resultados/
+e2e/resultados/
