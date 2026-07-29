@@ -106,8 +106,15 @@ git check-ignore .env && echo "OK: .env no se versiona"
 ## 4. Construir y arrancar
 
 ```sh
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml --profile tools build
+docker compose -f docker-compose.prod.yml up -d
 ```
+
+> **El `--profile tools` del `build` no es opcional.** Sin él, Compose construye
+> solo los servicios del perfil por omisión y deja intacta la imagen del
+> servicio `migrate`. En un redespliegue eso significa seguir usando la imagen
+> anterior, con las migraciones viejas incrustadas: `migrate status` informaría
+> menos migraciones de las que hay en el repositorio.
 
 El servicio `frontend` compila el cliente, copia el resultado al volumen
 `frontend_dist` y **termina con código 0**: eso es lo esperado, no un fallo.
@@ -131,7 +138,8 @@ El proyecto usa **Prisma** con migraciones versionadas en
 `backend/prisma/migrations/`. Estas **no se aplican solas** al arrancar: hay que
 ejecutarlas de forma explícita.
 
-Con la base de datos ya en marcha:
+Con la base de datos ya en marcha, y **tras haber reconstruido la imagen del
+servicio `migrate`** (ver el aviso de la sección anterior):
 
 ```sh
 docker compose -f docker-compose.prod.yml --profile tools run --rm migrate
@@ -147,6 +155,16 @@ Para revisar qué se aplicaría antes de hacerlo:
 docker compose -f docker-compose.prod.yml --profile tools run --rm \
   migrate pnpm exec prisma migrate status
 ```
+
+Comprueba que el número de migraciones encontradas coincide con el del
+repositorio:
+
+```sh
+ls backend/prisma/migrations | grep -v migration_lock | wc -l
+```
+
+Si `migrate status` informa menos, la imagen del servicio está desactualizada:
+reconstrúyela con `--profile tools build` antes de continuar.
 
 > **Nunca uses `prisma migrate reset` ni `prisma db push` en producción.** El
 > primero borra la base de datos completa; el segundo altera el esquema sin
