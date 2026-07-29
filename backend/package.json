@@ -20,7 +20,8 @@
     "studio": "prisma studio",
     "seed": "tsx prisma/seed.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "seed:artesano": "tsx scripts/crear-artesano.ts"
   },
   "keywords": [],
   "author": "",
