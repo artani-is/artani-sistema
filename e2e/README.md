@@ -44,7 +44,11 @@ pnpm exec playwright install chromium firefox
   `capitulo3/evidencias/e2e/`.
 - `backend/tests/resultados/mediciones-rnf.jsonl` y
   `e2e/resultados/mediciones-e2e.jsonl` — mediciones de tiempo (promedio,
-  máximo y mínimo sobre doce corridas por escenario).
+  máximo y mínimo sobre doce corridas por escenario). **No se versionan**: cada
+  corrida las reescribe, de modo que versionarlas solo producía conflictos al
+  fusionar ramas. Las cifras que respaldan el informe están citadas en el
+  documento, en las secciones de verificación de requisitos no funcionales de
+  cada sprint.
 
 ## Fallos esperados
 
