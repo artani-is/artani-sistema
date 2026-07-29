@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import AppLogo from '@/components/ui/AppLogo.vue'
 import TextileBand from '@/components/ui/TextileBand.vue'
 import PhotoSlot from '@/components/ui/PhotoSlot.vue'
@@ -111,9 +111,13 @@ async function enviar(): Promise<void> {
               Recordar sesión
             </span>
           </label>
-          <span :style="{ font: '700 var(--text-sm)/1 var(--font-sans)', color: 'var(--green-700)' }">
+          <RouterLink
+            :to="{ name: 'recuperar-contrasena' }"
+            class="no-underline"
+            :style="{ font: '700 var(--text-sm)/1 var(--font-sans)', color: 'var(--green-700)' }"
+          >
             ¿Olvidaste tu contraseña?
-          </span>
+          </RouterLink>
         </div>
 
         <BaseButton type="submit" variant="primary" size="lg" block :disabled="auth.cargando">
@@ -121,7 +125,7 @@ async function enviar(): Promise<void> {
         </BaseButton>
 
         <p class="m-0 text-center" :style="{ font: '400 var(--text-sm)/1.4 var(--font-sans)', color: 'var(--clay-600)' }">
-          Si olvidaste tu contraseña, contacta al equipo de soporte del taller.
+          El acceso es exclusivo del artesano responsable del taller.
         </p>
       </form>
     </main>

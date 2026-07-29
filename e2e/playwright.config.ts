@@ -51,6 +51,9 @@ export default defineConfig({
         JWT_SECRET: "secreto-e2e-artani",
         JWT_EXPIRES_IN: "8h",
         PUBLIC_BASE_URL: URL_BASE,
+        // El flujo de recuperación se recorre sin cuenta de Resend: el correo
+        // se escribe en la salida del servidor en lugar de enviarse.
+        CORREO_TRANSPORTE: "consola",
       },
     },
     {

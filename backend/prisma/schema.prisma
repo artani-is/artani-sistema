@@ -52,8 +52,29 @@ model Artesano {
   compras        Compra[]
   artesanias     Artesania[]
   reportes       ReporteVentas[]
+  tokensRecuperacion TokenRecuperacion[]
 
   @@map("artesano")
+}
+
+/// Recuperación de contraseña por correo (HU-1).
+///
+/// Del token solo se guarda su hash SHA-256: quien acceda a la base de datos no
+/// puede reconstruir el valor enviado por correo. El token es aleatorio de 256
+/// bits, por lo que no necesita el factor de trabajo de bcrypt —que sí requiere
+/// una contraseña elegida por una persona— y así la validación es inmediata.
+model TokenRecuperacion {
+  idToken         String    @id @default(dbgenerated("gen_random_uuid()")) @map("id_token") @db.Uuid
+  tokenHash       String    @unique @map("token_hash") @db.Char(64)
+  fechaSolicitud  DateTime  @default(now()) @map("fecha_solicitud") @db.Timestamptz(6)
+  fechaExpiracion DateTime  @map("fecha_expiracion") @db.Timestamptz(6)
+  /// Marca de uso único: en cuanto se consume deja de ser válido.
+  fechaUso        DateTime? @map("fecha_uso") @db.Timestamptz(6)
+  idArtesano      String    @map("id_artesano") @db.Uuid
+  artesano        Artesano  @relation(fields: [idArtesano], references: [idArtesano], onDelete: Cascade)
+
+  @@index([idArtesano, fechaSolicitud])
+  @@map("token_recuperacion")
 }
 
 /// intentos de login

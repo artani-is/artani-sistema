@@ -68,6 +68,19 @@ export const useAuthStore = defineStore('auth', () => {
     almacen.setItem(ARTESANO_KEY, JSON.stringify(actualizado))
   }
 
+  /**
+   * HU-1: solicita el enlace de recuperación. La API responde igual exista o
+   * no la cuenta, así que aquí tampoco se distingue.
+   */
+  async function solicitarRecuperacion(correo: string): Promise<void> {
+    await api.post('/auth/recuperacion', { correo })
+  }
+
+  /** HU-1: consume el enlace y fija la contraseña nueva. */
+  async function confirmarRecuperacion(token: string, contrasena: string): Promise<void> {
+    await api.post('/auth/recuperacion/confirmar', { token, contrasena })
+  }
+
   function cerrarSesion(): void {
     token.value = null
     artesano.value = null
@@ -85,6 +98,8 @@ export const useAuthStore = defineStore('auth', () => {
     nombreCompleto,
     iniciarSesion,
     actualizarPerfil,
+    solicitarRecuperacion,
+    confirmarRecuperacion,
     cerrarSesion,
   }
 })

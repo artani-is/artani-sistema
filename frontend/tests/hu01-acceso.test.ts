@@ -13,6 +13,12 @@ function crearRouter() {
     routes: [
       { path: '/', name: 'dashboard', component: { template: '<div>panel</div>' } },
       { path: '/login', name: 'login', component: LoginView },
+      // La pantalla de acceso enlaza a la recuperación de contraseña (HU-1)
+      {
+        path: '/recuperar',
+        name: 'recuperar-contrasena',
+        component: { template: '<div>recuperar</div>' },
+      },
     ],
   })
 }
