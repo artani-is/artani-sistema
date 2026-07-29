@@ -1,10 +1,9 @@
-import { readFileSync, statSync } from "node:fs";
+import { statSync } from "node:fs";
 import path from "node:path";
 import { describe, it, expect, beforeAll } from "vitest";
 import { prisma } from "../../src/lib/prisma.js";
 import { limpiarBaseDatos } from "../helpers/db.js";
 import { api, auth, crearArtesanoAutenticado, crearCatalogosBase, type ArtesanoPrueba } from "../helpers/api.js";
-import { pngDeDimensiones } from "../helpers/imagenes.js";
 import { UPLOADS_DIR } from "../../src/lib/uploads.js";
 
 let sesion: ArtesanoPrueba;
@@ -90,46 +89,50 @@ describe("RNF_010 · Integridad entre certificado y base de datos", () => {
 });
 
 describe("RNF_012 · Eficiencia (compresión automática de fotografías)", () => {
-  it("mide si la fotografía almacenada se comprime respecto del archivo recibido", async () => {
-    const id = await nuevaPieza("Pieza con foto pesada");
-    // PNG sin comprimir en contenido: 800×600 de color plano
-    const original = pngDeDimensiones(800, 600);
+  it("la fotografía almacenada se comprime respecto del archivo recibido", async () => {
+    const { fotoDePrueba } = await import("../helpers/imagenes.js");
+    const id = await nuevaPieza("Pieza con foto de teléfono");
+    // Entrada equivalente a la de un teléfono actual
+    const original = await fotoDePrueba(4000, 3000);
 
     const carga = await api()
       .post(`/api/artesanias/${id}/fotos`)
       .set(...auth(sesion))
-      .attach("fotos", original, { filename: "grande.png", contentType: "image/png" });
+      .attach("fotos", original, { filename: "grande.jpg", contentType: "image/jpeg" });
     expect(carga.status).toBe(201);
 
-    const rutaAlmacenada = carga.body[0].rutaArchivo as string;
-    const archivo = path.join(UPLOADS_DIR, path.basename(rutaAlmacenada));
-    const almacenado = statSync(archivo).size;
+    const { rutaWebp, rutaJpeg } = carga.body[0] as { rutaWebp: string; rutaJpeg: string };
+    const pesoWebp = statSync(path.join(UPLOADS_DIR, path.basename(rutaWebp))).size;
+    const pesoJpeg = statSync(path.join(UPLOADS_DIR, path.basename(rutaJpeg))).size;
 
+    const reduccion = ((original.length - pesoWebp) / original.length) * 100;
     console.log(
-      `[RNF_012] recibido=${original.length} B · almacenado=${almacenado} B · ` +
-        `reducción=${(((original.length - almacenado) / original.length) * 100).toFixed(1)} %`,
+      `[RNF_012] recibido=${(original.length / 1024).toFixed(0)} KB · ` +
+        `webp=${(pesoWebp / 1024).toFixed(0)} KB · jpeg=${(pesoJpeg / 1024).toFixed(0)} KB · ` +
+        `reducción=${reduccion.toFixed(1)} %`,
     );
 
-    // Resultado observado: el archivo se guarda tal cual, byte a byte. No existe
-    // ninguna etapa de recompresión ni redimensionado en la carga de fotografías,
-    // por lo que el RNF_012 NO se satisface en el estado actual del sistema.
-    expect(almacenado).toBe(original.length);
-    expect(readFileSync(archivo).equals(original)).toBe(true);
+    // La compresión es efectiva: el archivo servido pesa una fracción del recibido
+    expect(pesoWebp).toBeLessThan(original.length * 0.2);
+    expect(pesoJpeg).toBeLessThan(original.length * 0.2);
+    // Y ambos derivados quedan dentro del orden de magnitud previsto
+    expect(pesoWebp).toBeLessThan(400 * 1024);
+    expect(pesoJpeg).toBeLessThan(400 * 1024);
   });
 
-  it("el único control de peso existente es el límite de 5 MB por archivo", async () => {
+  it("el límite de entrada por archivo es de 8 MB", async () => {
     const { pngDeTamano } = await import("../helpers/imagenes.js");
     const id = await nuevaPieza("Pieza límite");
 
     const res = await api()
       .post(`/api/artesanias/${id}/fotos`)
       .set(...auth(sesion))
-      .attach("fotos", pngDeTamano(6 * 1024 * 1024), {
+      .attach("fotos", pngDeTamano(9 * 1024 * 1024), {
         filename: "pesada.png",
         contentType: "image/png",
       });
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/máximo 5 MB/i);
+    expect(res.body.error).toMatch(/máximo 8 MB/i);
   });
 });

@@ -267,7 +267,8 @@ async function eliminarFoto(foto: FotoArtesania): Promise<void> {
     await cargarPieza()
     snackbar.exito('Fotografía eliminada.', async () => {
       await store.restaurarFoto(idArtesania, {
-        rutaArchivo: foto.rutaArchivo,
+        rutaWebp: foto.rutaWebp,
+        rutaJpeg: foto.rutaJpeg,
         esPrincipal: foto.esPrincipal,
       })
       await cargarPieza()
@@ -317,7 +318,7 @@ function formatearFecha(iso: string): string {
         <!-- Columna izquierda: foto + estado -->
         <div class="flex flex-col gap-4">
           <div class="card overflow-hidden">
-            <PhotoSlot :src="fotoPrincipal?.rutaArchivo ?? ''" caption="Fotografía de la pieza" aspect="3 / 4" />
+            <PhotoSlot :src="fotoPrincipal?.rutaWebp ?? ''" caption="Fotografía de la pieza" aspect="3 / 4" />
           </div>
           <div class="flex items-center justify-between">
             <BaseBadge :tone="TONO_ESTADO[pieza.estado]">{{ ETIQUETA_ESTADO[pieza.estado] }}</BaseBadge>
@@ -566,7 +567,7 @@ function formatearFecha(iso: string): string {
                 }"
               >
                 <img
-                  :src="foto.rutaArchivo"
+                  :src="foto.rutaWebp"
                   :alt="`Fotografía de ${pieza.nombre}`"
                   class="h-32 w-full object-cover"
                 />

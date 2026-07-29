@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import multer from "multer";
 import { Prisma } from "../generated/prisma/client.js";
+import { MAX_TAMANO_MB } from "../lib/constantes.js";
 
 export class ApiError extends Error {
   constructor(
@@ -46,7 +47,7 @@ export function errorHandler(
   if (err instanceof multer.MulterError) {
     const mensaje =
       err.code === "LIMIT_FILE_SIZE"
-        ? "Cada fotografía debe pesar máximo 5 MB"
+        ? `Cada fotografía debe pesar máximo ${MAX_TAMANO_MB} MB`
         : "Error al procesar los archivos adjuntos";
     res.status(400).json({ error: mensaje });
     return;

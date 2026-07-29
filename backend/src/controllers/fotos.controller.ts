@@ -3,14 +3,20 @@ import path from "node:path";
 import type { NextFunction, Request, Response } from "express";
 import { prisma } from "../lib/prisma.js";
 import { UPLOADS_DIR } from "../lib/uploads.js";
+import { procesarFotografia } from "../lib/imagenes.js";
 import { ApiError } from "../middlewares/error.js";
 import { paramDe } from "../lib/validate.js";
 
-async function borrarArchivo(rutaArchivo: string) {
-  const nombre = path.basename(rutaArchivo);
+async function borrarArchivo(rutaPublica: string) {
+  const nombre = path.basename(rutaPublica);
   await unlink(path.join(UPLOADS_DIR, nombre)).catch(() => {
     // El registro en BD es la fuente de verdad; un archivo ya ausente no debe romper la operación
   });
+}
+
+/** Borra los dos derivados de una fotografía. */
+async function borrarDerivados(foto: { rutaWebp: string; rutaJpeg: string }) {
+  await Promise.all([borrarArchivo(foto.rutaWebp), borrarArchivo(foto.rutaJpeg)]);
 }
 
 export async function subir(req: Request, res: Response, next: NextFunction) {
@@ -26,24 +32,36 @@ export async function subir(req: Request, res: Response, next: NextFunction) {
       include: { _count: { select: { fotos: true } } },
     });
     if (!artesania || artesania.eliminado) {
-      await Promise.all(archivos.map((archivo) => borrarArchivo(archivo.filename)));
       throw new ApiError(404, "La artesanía no existe");
     }
 
+    // RNF_012: se redimensiona y comprime antes de tocar la base de datos; lo
+    // que llegó en memoria no se conserva tal cual en ningún momento.
+    const derivados = await Promise.all(
+      archivos.map((archivo) => procesarFotografia(archivo.buffer)),
+    );
+
     // Si la pieza no tiene fotos, la primera cargada se marca como principal (HU-07)
     const sinFotos = artesania._count.fotos === 0;
-    const fotos = await prisma.$transaction(
-      archivos.map((archivo, indice) =>
-        prisma.fotoArtesania.create({
-          data: {
-            idArtesania,
-            rutaArchivo: `/uploads/${archivo.filename}`,
-            esPrincipal: sinFotos && indice === 0,
-          },
-        }),
-      ),
-    );
-    res.status(201).json(fotos);
+    try {
+      const fotos = await prisma.$transaction(
+        derivados.map((rutas, indice) =>
+          prisma.fotoArtesania.create({
+            data: {
+              idArtesania,
+              rutaWebp: rutas.rutaWebp,
+              rutaJpeg: rutas.rutaJpeg,
+              esPrincipal: sinFotos && indice === 0,
+            },
+          }),
+        ),
+      );
+      res.status(201).json(fotos);
+    } catch (err) {
+      // Si el registro falla, los derivados ya escritos quedarían huérfanos
+      await Promise.all(derivados.map(borrarDerivados));
+      throw err;
+    }
   } catch (err) {
     next(err);
   }
@@ -85,7 +103,7 @@ export async function eliminar(req: Request, res: Response, next: NextFunction) 
     if (!foto) {
       throw new ApiError(404, "La fotografía no existe para esta artesanía");
     }
-    // CAM-014: el archivo se conserva en disco para que «Deshacer» pueda restaurar la foto
+    // CAM-014: los archivos se conservan en disco para que «Deshacer» pueda restaurar la foto
     await prisma.fotoArtesania.delete({ where: { idFoto } });
 
     // Mantener siempre una foto principal si quedan fotos (HU-07)
@@ -112,9 +130,10 @@ export async function restaurar(req: Request, res: Response, next: NextFunction)
   try {
     const idArtesania = paramDe(req.params, "id");
     const body = (req.body ?? {}) as Record<string, unknown>;
-    const rutaArchivo = typeof body.rutaArchivo === "string" ? body.rutaArchivo : "";
-    if (!rutaArchivo.startsWith("/uploads/")) {
-      throw new ApiError(400, "La ruta de la fotografía a restaurar no es válida");
+    const rutaWebp = typeof body.rutaWebp === "string" ? body.rutaWebp : "";
+    const rutaJpeg = typeof body.rutaJpeg === "string" ? body.rutaJpeg : "";
+    if (!rutaWebp.startsWith("/uploads/") || !rutaJpeg.startsWith("/uploads/")) {
+      throw new ApiError(400, "Las rutas de la fotografía a restaurar no son válidas");
     }
     const artesania = await prisma.artesania.findUnique({ where: { idArtesania } });
     if (!artesania || artesania.eliminado) {
@@ -130,7 +149,7 @@ export async function restaurar(req: Request, res: Response, next: NextFunction)
         });
       }
       return tx.fotoArtesania.create({
-        data: { idArtesania, rutaArchivo, esPrincipal },
+        data: { idArtesania, rutaWebp, rutaJpeg, esPrincipal },
       });
     });
     res.status(201).json(foto);

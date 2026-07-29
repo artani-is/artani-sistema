@@ -136,7 +136,8 @@ export const ETIQUETA_ESTADO: Record<EstadoArtesania, string> = {
 
 export interface FotoArtesania {
   idFoto: string
-  rutaArchivo: string
+  rutaWebp: string
+  rutaJpeg: string
   esPrincipal: boolean
   fechaCarga: string
   idArtesania: string

@@ -219,9 +219,13 @@ model Artesania {
   @@map("artesania")
 }
 
+/// Cada fotografía se almacena en dos derivados comprimidos (RNF_012): el WebP
+/// se sirve en la interfaz y en la ficha pública; el JPEG existe únicamente
+/// porque PDFKit no puede incrustar WebP en el certificado.
 model FotoArtesania {
   idFoto      String    @id @default(dbgenerated("gen_random_uuid()")) @map("id_foto") @db.Uuid
-  rutaArchivo String    @map("ruta_archivo") @db.VarChar(300)
+  rutaWebp    String    @map("ruta_webp") @db.VarChar(300)
+  rutaJpeg    String    @map("ruta_jpeg") @db.VarChar(300)
   esPrincipal Boolean   @default(false) @map("es_principal")
   fechaCarga  DateTime  @default(now()) @map("fecha_carga") @db.Timestamptz(6)
   idArtesania String    @map("id_artesania") @db.Uuid

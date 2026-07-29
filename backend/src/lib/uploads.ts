@@ -1,31 +1,25 @@
-import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import multer from "multer";
 import { ApiError } from "../middlewares/error.js";
+import { MAX_TAMANO_BYTES } from "./constantes.js";
+
+export { MAX_TAMANO_BYTES };
 
 export const UPLOADS_DIR = path.resolve(process.cwd(), "uploads");
 mkdirSync(UPLOADS_DIR, { recursive: true });
 
-const MAX_TAMANO_BYTES = 5 * 1024 * 1024; // 5 MB por archivo (HU-07)
+const FORMATOS_ACEPTADOS = new Set(["image/png", "image/jpeg"]);
 
-const EXTENSIONES: Record<string, string> = {
-  "image/png": ".png",
-  "image/jpeg": ".jpg",
-};
-
-const storage = multer.diskStorage({
-  destination: UPLOADS_DIR,
-  filename: (_req, file, cb) => {
-    cb(null, `${randomUUID()}${EXTENSIONES[file.mimetype]}`);
-  },
-});
-
+/**
+ * Las fotografías se reciben en memoria porque no se conservan tal cual: sharp
+ * las procesa y en disco solo se escriben los derivados (WebP y JPEG).
+ */
 export const subirFotos = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: MAX_TAMANO_BYTES, files: 10 },
   fileFilter: (_req, file, cb) => {
-    if (!(file.mimetype in EXTENSIONES)) {
+    if (!FORMATOS_ACEPTADOS.has(file.mimetype)) {
       cb(new ApiError(400, "Solo se aceptan imágenes en formato PNG o JPG"));
       return;
     }

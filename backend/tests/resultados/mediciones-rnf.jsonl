@@ -10,3 +10,15 @@
 {"rnf":"RNF_003","descripcion":"Verificación pública del QR","unidad":"ms","muestras":12,"promedio":15.03,"maximo":22.95,"minimo":12.37,"umbral":3000}
 {"rnf":"RNF_007","descripcion":"Consulta filtrada del inventario con 10035 piezas","unidad":"ms","muestras":12,"promedio":65.97,"maximo":102.95,"minimo":49.85,"umbral":3000}
 {"rnf":"RNF_007","descripcion":"Conteo de piezas disponibles con 10035 piezas","unidad":"ms","muestras":12,"promedio":5.31,"maximo":8.64,"minimo":4.16,"umbral":3000}
+{"rnf":"RNF_003","descripcion":"Cálculo del precio sugerido","unidad":"ms","muestras":12,"promedio":32.71,"maximo":49.83,"minimo":28.25,"umbral":3000}
+{"rnf":"RNF_003","descripcion":"Generación del certificado PDF (QR + PDF)","unidad":"ms","muestras":12,"promedio":82.65,"maximo":148.82,"minimo":64.87,"umbral":3000}
+{"rnf":"RNF_003","descripcion":"Generación del reporte de ventas en PDF","unidad":"ms","muestras":12,"promedio":31.81,"maximo":56.35,"minimo":26.83,"umbral":3000}
+{"rnf":"RNF_003","descripcion":"Verificación pública del QR","unidad":"ms","muestras":12,"promedio":13.91,"maximo":17.34,"minimo":12.29,"umbral":3000}
+{"rnf":"RNF_007","descripcion":"Consulta filtrada del inventario con 10035 piezas","unidad":"ms","muestras":12,"promedio":67.66,"maximo":90.6,"minimo":50.75,"umbral":3000}
+{"rnf":"RNF_007","descripcion":"Conteo de piezas disponibles con 10035 piezas","unidad":"ms","muestras":12,"promedio":4.87,"maximo":6.26,"minimo":4.13,"umbral":3000}
+{"rnf":"RNF_003","descripcion":"Cálculo del precio sugerido","unidad":"ms","muestras":12,"promedio":33.7,"maximo":52.2,"minimo":30.61,"umbral":3000}
+{"rnf":"RNF_003","descripcion":"Generación del certificado PDF (QR + PDF)","unidad":"ms","muestras":12,"promedio":83.6,"maximo":153.24,"minimo":66.52,"umbral":3000}
+{"rnf":"RNF_003","descripcion":"Generación del reporte de ventas en PDF","unidad":"ms","muestras":12,"promedio":31.32,"maximo":40.57,"minimo":28.19,"umbral":3000}
+{"rnf":"RNF_003","descripcion":"Verificación pública del QR","unidad":"ms","muestras":12,"promedio":13.88,"maximo":18.45,"minimo":12.17,"umbral":3000}
+{"rnf":"RNF_007","descripcion":"Consulta filtrada del inventario con 10035 piezas","unidad":"ms","muestras":12,"promedio":60.63,"maximo":96.88,"minimo":47.69,"umbral":3000}
+{"rnf":"RNF_007","descripcion":"Conteo de piezas disponibles con 10035 piezas","unidad":"ms","muestras":12,"promedio":4.55,"maximo":5.84,"minimo":3.85,"umbral":3000}

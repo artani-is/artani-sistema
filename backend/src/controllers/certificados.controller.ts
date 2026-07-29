@@ -75,7 +75,9 @@ export async function emitir(req: Request, res: Response, next: NextFunction) {
           .trim(),
         nombreTaller: pieza.artesano.nombreTaller,
       },
-      rutaFotoPrincipal: fotoPrincipal.rutaArchivo,
+      // PDFKit no admite WebP: se incrusta el derivado JPEG, que ya viene
+      // comprimido y no requiere ninguna conversión adicional en este paso.
+      rutaFotoPrincipal: fotoPrincipal.rutaJpeg,
       fechaEmision,
     });
 
@@ -157,7 +159,8 @@ export async function verificarPublico(req: Request, res: Response, next: NextFu
         descripcion: artesania.descripcion,
         tecnica: artesania.tecnica.nombre,
         categoria: artesania.categoria.nombre,
-        foto: artesania.fotos[0]?.rutaArchivo ?? null,
+        // La ficha pública se consulta en navegador: se sirve el WebP
+        foto: artesania.fotos[0]?.rutaWebp ?? null,
       },
       artesano: {
         nombre: [artesano.nombres, artesano.apellidoPaterno, artesano.apellidoMaterno ?? ""]

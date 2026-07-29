@@ -89,7 +89,7 @@ export const useArtesaniasStore = defineStore('artesanias', () => {
   /** CAM-014: revierte la eliminación de una fotografía (acción «Deshacer»). */
   function restaurarFoto(
     id: string,
-    datos: { rutaArchivo: string; esPrincipal: boolean },
+    datos: { rutaWebp: string; rutaJpeg: string; esPrincipal: boolean },
   ): Promise<FotoArtesania> {
     return api.post<FotoArtesania>(`/artesanias/${id}/fotos/restaurar`, datos)
   }
