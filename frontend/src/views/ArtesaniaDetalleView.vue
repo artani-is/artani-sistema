@@ -8,6 +8,7 @@ import {
   Check,
   Download,
   ExternalLink,
+  History,
   Pencil,
   Store,
   Trash2,
@@ -34,6 +35,7 @@ import {
   type Artesania,
   type EstadoArtesania,
   type FotoArtesania,
+  type VerificacionCertificado,
 } from '@/types'
 
 const route = useRoute()
@@ -88,6 +90,35 @@ async function emitirCertificado(): Promise<void> {
   } finally {
     emitiendo.value = false
   }
+}
+
+/**
+ * HU-12: bitácora de transparencia. Cada escaneo de la ficha pública queda
+ * registrado con su fecha y hora; el historial es visible únicamente para el
+ * artesano —la respuesta pública no lo incluye— y se consulta bajo demanda.
+ */
+const modalBitacora = ref(false)
+const bitacora = ref<VerificacionCertificado[]>([])
+const cargandoBitacora = ref(false)
+const errorBitacora = ref<string | null>(null)
+
+async function abrirBitacora(): Promise<void> {
+  modalBitacora.value = true
+  cargandoBitacora.value = true
+  errorBitacora.value = null
+  try {
+    const certificado = await store.obtenerCertificado(idArtesania)
+    bitacora.value = certificado.verificaciones ?? []
+  } catch (err) {
+    errorBitacora.value =
+      err instanceof ApiError ? err.message : 'No se pudo cargar el historial de escaneos'
+  } finally {
+    cargandoBitacora.value = false
+  }
+}
+
+function formatearFechaHora(iso: string): string {
+  return new Date(iso).toLocaleString('es-MX', { dateStyle: 'long', timeStyle: 'short' })
 }
 
 // Sprint 5 — consignación y ventas
@@ -482,6 +513,16 @@ function formatearFecha(iso: string): string {
                       <ExternalLink :size="18" />
                       Ver ficha pública
                     </RouterLink>
+                    <!-- HU-12: bitácora de transparencia, visible solo para el artesano -->
+                    <button
+                      type="button"
+                      class="btn btn-secondary"
+                      :style="{ color: 'var(--cream-50)', borderColor: 'rgba(255,255,255,0.4)', background: 'transparent' }"
+                      @click="abrirBitacora"
+                    >
+                      <History :size="18" />
+                      Ver historial de escaneos
+                    </button>
                   </div>
                 </template>
                 <template v-else>
@@ -744,6 +785,54 @@ function formatearFecha(iso: string): string {
         </BaseButton>
       </template>
     </BaseModal>
+
+    <!-- HU-12: historial fechado de verificaciones, solo para el artesano -->
+    <BaseModal
+      :abierto="modalBitacora"
+      titulo="Historial de escaneos"
+      :ancho="520"
+      @cerrar="modalBitacora = false"
+    >
+      <div class="flex flex-col gap-3.5">
+        <p class="m-0">
+          Cada vez que alguien escanea el código QR de <strong>{{ pieza?.nombre }}</strong> queda
+          registrada la fecha y la hora de la consulta. Este historial solo lo ves tú: la ficha
+          pública no lo muestra al comprador.
+        </p>
+
+        <BaseAlert v-if="errorBitacora" tone="error" :closable="false">
+          {{ errorBitacora }}
+        </BaseAlert>
+
+        <p v-else-if="cargandoBitacora" class="m-0" :style="{ color: 'var(--clay-500)' }">
+          Cargando historial…
+        </p>
+
+        <p v-else-if="bitacora.length === 0" class="m-0" :style="{ color: 'var(--clay-500)' }">
+          Todavía nadie ha escaneado este certificado. En cuanto ocurra, la consulta aparecerá
+          aquí con su fecha y hora.
+        </p>
+
+        <template v-else>
+          <span class="etiqueta-campo">
+            {{ bitacora.length }}
+            {{ bitacora.length === 1 ? 'verificación registrada' : 'verificaciones registradas' }}
+          </span>
+          <!-- De la más reciente a la más antigua, como las devuelve la API -->
+          <ol class="lista-bitacora">
+            <li v-for="(verificacion, indice) in bitacora" :key="verificacion.idVerificacion">
+              <span :style="{ fontFamily: 'var(--font-mono)', color: 'var(--clay-500)' }">
+                {{ bitacora.length - indice }}
+              </span>
+              <span class="valor-campo">{{ formatearFechaHora(verificacion.fechaHora) }}</span>
+            </li>
+          </ol>
+        </template>
+      </div>
+      <template #footer>
+        <BaseButton variant="ghost" @click="modalBitacora = false">Cerrar</BaseButton>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
@@ -757,6 +846,24 @@ function formatearFecha(iso: string): string {
 .valor-campo {
   font: 500 var(--text-body) / 1.3 var(--font-sans);
   color: var(--green-900);
+}
+.lista-bitacora {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1.5px solid var(--cream-300);
+  border-radius: var(--radius-md);
+}
+.lista-bitacora li {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 10px 14px;
+}
+.lista-bitacora li:nth-child(even) {
+  background: var(--cream-100);
 }
 .fila-costeo {
   display: flex;
