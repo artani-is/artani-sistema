@@ -1,32 +1,41 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { AlertTriangle, Archive, Check } from '@lucide/vue'
+import { AlertTriangle, Archive, Check, WifiOff } from '@lucide/vue'
 import AppLogo from '@/components/ui/AppLogo.vue'
 import BaseBadge from '@/components/ui/BaseBadge.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
 import PhotoSlot from '@/components/ui/PhotoSlot.vue'
 import TextileBand from '@/components/ui/TextileBand.vue'
-import { api } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
 import type { VerificacionPublica } from '@/types'
 
 const route = useRoute()
 const cargando = ref(true)
 const certificado = ref<VerificacionPublica | null>(null)
+/** RNF_011: un fallo de conexión no es un certificado falso; se informa aparte. */
+const sinConexion = ref(false)
 
 // CAM-013: la pieza dada de baja sigue siendo auténtica; solo cambia su situación
 const dadaDeBaja = computed(() => certificado.value?.estado === 'BAJA')
 
-onMounted(async () => {
+async function verificar(): Promise<void> {
+  cargando.value = true
+  sinConexion.value = false
   try {
     certificado.value = await api.get<VerificacionPublica>(
       `/publico/certificados/${route.params.id as string}`,
     )
-  } catch {
+  } catch (err) {
     certificado.value = null
+    // Sin respuesta del servidor no se puede afirmar nada sobre la pieza (RNF_011)
+    sinConexion.value = err instanceof ApiError && err.status === 0
   } finally {
     cargando.value = false
   }
-})
+}
+
+onMounted(verificar)
 
 function formatearFecha(iso: string): string {
   return new Date(iso).toLocaleDateString('es-MX', { dateStyle: 'long' })
@@ -131,6 +140,36 @@ function formatearFecha(iso: string): string {
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- RNF_011: sin conexión no se puede verificar; no se declara falsa la pieza -->
+      <div
+        v-else-if="sinConexion"
+        class="card card-padded flex w-full flex-col items-center gap-4 text-center"
+        :style="{ maxWidth: '480px', padding: '40px', borderColor: 'var(--amber-400)' }"
+      >
+        <span
+          class="inline-flex items-center justify-center rounded-full"
+          :style="{
+            width: '64px',
+            height: '64px',
+            background: 'var(--amber-100)',
+            color: 'var(--amber-700)',
+          }"
+        >
+          <WifiOff :size="34" />
+        </span>
+        <div :style="{ font: '600 26px/1.1 var(--font-serif)', color: 'var(--amber-700)' }">
+          Sin conexión
+        </div>
+        <p
+          class="m-0"
+          :style="{ font: '400 17px/1.5 var(--font-sans)', color: 'var(--clay-700)', maxWidth: '360px' }"
+        >
+          No hay conexión con el servidor, así que este certificado no pudo verificarse. Esto no
+          significa que la pieza no sea auténtica: revisa tu internet e inténtalo de nuevo.
+        </p>
+        <BaseButton variant="secondary" @click="verificar">Reintentar</BaseButton>
       </div>
 
       <!-- Certificado inválido: reservado para códigos inexistentes o manipulados -->
