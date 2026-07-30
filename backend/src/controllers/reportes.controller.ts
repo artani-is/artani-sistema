@@ -24,7 +24,8 @@ function ventasDelPeriodo(fechaInicio: Date, fechaFin: Date) {
     where: { fechaVenta: { gte: fechaInicio, lte: fechaFin } },
     orderBy: { fechaVenta: "asc" },
     include: {
-      artesania: { select: { nombre: true } },
+      // HU-09: el precio de venta final debe figurar también en los reportes
+      artesania: { select: { nombre: true, precioVenta: true } },
       consignacion: { include: { galeria: { select: { nombre: true } } } },
     },
   });
@@ -64,6 +65,7 @@ export async function generar(req: Request, res: Response, next: NextFunction) {
       ventas: ventas.map((v) => ({
         fechaVenta: v.fechaVenta,
         montoCobrado: v.montoCobrado.toString(),
+        precioLista: v.artesania.precioVenta?.toString() ?? null,
         pieza: v.artesania.nombre,
         canal: v.idConsignacion ? "CONSIGNACION" : "DIRECTA",
         galeria: v.consignacion?.galeria.nombre ?? null,

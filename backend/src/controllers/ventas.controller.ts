@@ -25,7 +25,8 @@ export async function listar(req: Request, res: Response, next: NextFunction) {
       },
       orderBy: { fechaVenta: "desc" },
       include: {
-        artesania: { select: { idArtesania: true, nombre: true } },
+        // HU-09: el precio final acompaña a la venta para contrastarlo con lo cobrado
+        artesania: { select: { idArtesania: true, nombre: true, precioVenta: true } },
         consignacion: { include: { galeria: { select: { idGaleria: true, nombre: true } } } },
       },
     });

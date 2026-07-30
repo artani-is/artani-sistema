@@ -182,8 +182,9 @@ function formatearFechaHora(iso: string): string {
           { key: 'folio', header: 'Folio', width: '90px' },
           { key: 'fecha', header: 'Fecha', width: '140px' },
           { key: 'pieza', header: 'Pieza' },
-          { key: 'canal', header: 'Canal', width: '220px' },
-          { key: 'monto', header: 'Monto', width: '130px', align: 'right' },
+          { key: 'canal', header: 'Canal', width: '200px' },
+          { key: 'lista', header: 'Precio de lista', width: '140px', align: 'right' },
+          { key: 'monto', header: 'Monto cobrado', width: '140px', align: 'right' },
         ]"
         :rows="store.ventas"
         :row-key="(v: Venta) => v.idVenta"
@@ -206,6 +207,13 @@ function formatearFechaHora(iso: string): string {
                 : 'Venta directa'
             }}
           </BaseBadge>
+        </template>
+        <!-- HU-09: el precio final de la pieza se contrasta con lo efectivamente cobrado -->
+        <template #cell-lista="{ row }">
+          <span v-if="row.artesania?.precioVenta" :style="{ color: 'var(--clay-600)' }">
+            {{ formatearMoneda(Number(row.artesania.precioVenta)) }}
+          </span>
+          <span v-else :style="{ color: 'var(--clay-400)' }">—</span>
         </template>
         <template #cell-monto="{ row }">
           <strong>{{ formatearMoneda(Number(row.montoCobrado)) }}</strong>
