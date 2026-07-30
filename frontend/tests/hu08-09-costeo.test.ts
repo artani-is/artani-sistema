@@ -70,11 +70,6 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
-/** Lee el número mostrado por un campo numérico del resumen. */
-function numerosDe(texto: string): number[] {
-  return [...texto.matchAll(/\$\s?([\d,]+(?:\.\d+)?)/g)].map((m) => Number(m[1]!.replace(/,/g, '')))
-}
-
 describe('HU-08 · Cálculo de precio sugerido — vista de costeo', () => {
   it('caso de éxito: el precio sugerido se actualiza al cambiar horas y tarifa', async () => {
     const wrapper = await montarCosteo()
