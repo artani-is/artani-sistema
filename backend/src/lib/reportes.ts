@@ -13,6 +13,8 @@ export function rutaReportePublica(idReporte: string): string {
 interface VentaReporte {
   fechaVenta: Date;
   montoCobrado: string;
+  /** Precio de venta final de la pieza (HU-09); nulo si nunca se le asignó uno. */
+  precioLista: string | null;
   pieza: string;
   canal: "DIRECTA" | "CONSIGNACION";
   galeria: string | null;
@@ -98,11 +100,14 @@ export async function generarPdfReporte(datos: DatosReporte): Promise<string> {
 
     // Tabla de ventas
     let y = yTot + 96;
+    // HU-09: el precio de lista (precio de venta final de la pieza) acompaña al
+    // monto efectivamente cobrado, que puede diferir de él en la transacción.
     const columnas = [
-      { titulo: "FECHA", x: margen, ancho: 90 },
-      { titulo: "PIEZA", x: margen + 96, ancho: 200 },
-      { titulo: "CANAL", x: margen + 302, ancho: 130 },
-      { titulo: "MONTO", x: margen + 438, ancho: ancho - margen - (margen + 438) },
+      { titulo: "FECHA", x: margen, ancho: 76, derecha: false },
+      { titulo: "PIEZA", x: margen + 82, ancho: 148, derecha: false },
+      { titulo: "CANAL", x: margen + 236, ancho: 104, derecha: false },
+      { titulo: "PRECIO LISTA", x: margen + 346, ancho: 82, derecha: true },
+      { titulo: "COBRADO", x: margen + 434, ancho: ancho - margen - (margen + 434), derecha: true },
     ] as const;
 
     const encabezadoTabla = () => {
@@ -114,7 +119,8 @@ export async function generarPdfReporte(datos: DatosReporte): Promise<string> {
           .fill(crema)
           .text(col.titulo, col.x + 6, y + 8, {
             width: col.ancho - 12,
-            align: col.titulo === "MONTO" ? "right" : "left",
+            align: col.derecha ? "right" : "left",
+            lineBreak: false,
           });
       }
       y += 24;
@@ -135,16 +141,19 @@ export async function generarPdfReporte(datos: DatosReporte): Promise<string> {
         fmtFecha(venta.fechaVenta),
         venta.pieza,
         canal,
+        // Una pieza vendida sin precio final asignado no tiene precio de lista
+        venta.precioLista === null ? "Sin asignar" : fmtMoneda(Number(venta.precioLista)),
         fmtMoneda(Number(venta.montoCobrado)),
       ];
       columnas.forEach((col, j) => {
+        const esCobrado = j === columnas.length - 1;
         doc
-          .font("Helvetica")
+          .font(esCobrado ? "Helvetica-Bold" : "Helvetica")
           .fontSize(10)
-          .fill(j === 3 ? verde700 : arcilla)
+          .fill(esCobrado ? verde700 : arcilla)
           .text(celdas[j] ?? "", col.x + 6, y + 6, {
             width: col.ancho - 12,
-            align: j === 3 ? "right" : "left",
+            align: col.derecha ? "right" : "left",
             lineBreak: false,
             ellipsis: true,
           });
@@ -157,7 +166,7 @@ export async function generarPdfReporte(datos: DatosReporte): Promise<string> {
       .fontSize(9)
       .fill(arcilla)
       .text(
-        `Reporte ${datos.idReporte} · Los totales se calculan sobre las ventas registradas en el periodo.`,
+        `Reporte ${datos.idReporte} · Los totales se calculan sobre el monto cobrado de las ventas registradas en el periodo.`,
         margen,
         doc.page.height - 56,
         { width: ancho - margen * 2, align: "center" },

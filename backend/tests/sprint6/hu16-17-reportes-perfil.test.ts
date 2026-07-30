@@ -30,13 +30,29 @@ beforeEach(async () => {
   idGaleria = galeria.idGaleria;
 });
 
-/** Registra una venta en la fecha indicada y devuelve el monto cobrado. */
-async function venderPieza(nombre: string, monto: number, fechaVenta: string, porGaleria = false) {
+/**
+ * Registra una venta en la fecha indicada y devuelve el monto cobrado.
+ * `precioLista` asigna el precio de venta final de la pieza (HU-09), que puede
+ * diferir de lo efectivamente cobrado en la transacción.
+ */
+async function venderPieza(
+  nombre: string,
+  monto: number,
+  fechaVenta: string,
+  porGaleria = false,
+  precioLista?: number,
+) {
   const pieza = await api()
     .post("/api/artesanias")
     .set(...auth(sesion))
     .send({ nombre, idTecnica, idCategoria });
 
+  if (precioLista !== undefined) {
+    await api()
+      .put(`/api/artesanias/${pieza.body.idArtesania}/precio`)
+      .set(...auth(sesion))
+      .send({ precioVenta: precioLista });
+  }
   if (porGaleria) {
     await api()
       .post(`/api/artesanias/${pieza.body.idArtesania}/consignacion`)
@@ -86,6 +102,64 @@ describe("HU-16 · Generación de reporte de ventas", () => {
     // El PDF refleja la pieza y el total del periodo
     const texto = textoDelPdf(pdf);
     expect(texto).toContain("Pieza A");
+  });
+
+  it("CA HU-09: el PDF muestra el precio de lista junto al monto cobrado", async () => {
+    // Precio final de la pieza 1 500; se cobró 1 200 (descuento en la transacción)
+    await venderPieza("Vasija de barro", 1200, "2026-03-05", false, 1500);
+
+    const res = await api()
+      .post("/api/reportes")
+      .set(...auth(sesion))
+      .send({ fechaInicio: "2026-03-01", fechaFin: "2026-03-31" });
+
+    const pdf = readFileSync(
+      path.join(UPLOADS_DIR, path.relative("/uploads", res.body.rutaExportacion)),
+    );
+    const texto = textoDelPdf(pdf);
+
+    expect(texto).toContain("PRECIO LISTA");
+    expect(texto).toContain("COBRADO");
+    // Ambos importes conviven en el renglón de la venta
+    expect(texto).toContain("$1,500.00");
+    expect(texto).toContain("$1,200.00");
+
+    // Los totales de la HU-16 siguen derivándose del monto cobrado, no del de lista
+    expect(res.body.totalVentas).toBe(1200);
+    expect(res.body.totalPiezas).toBe(1);
+  });
+
+  it("una pieza vendida sin precio final asignado no inventa un precio de lista", async () => {
+    await venderPieza("Sin precio final", 800, "2026-03-07");
+
+    const res = await api()
+      .post("/api/reportes")
+      .set(...auth(sesion))
+      .send({ fechaInicio: "2026-03-01", fechaFin: "2026-03-31" });
+
+    const pdf = readFileSync(
+      path.join(UPLOADS_DIR, path.relative("/uploads", res.body.rutaExportacion)),
+    );
+    const texto = textoDelPdf(pdf);
+
+    expect(texto).toContain("Sin precio final");
+    expect(texto).toContain("$800.00");
+    // El precio de lista ausente se declara como tal en lugar de inventar un importe
+    expect(texto).toContain("Sin asignar");
+    expect(res.body.totalVentas).toBe(800);
+  });
+
+  it("CA HU-09: el listado de ventas expone el precio final de cada pieza", async () => {
+    await venderPieza("Olla ceremonial", 950, "2026-03-09", false, 1100);
+
+    const res = await api()
+      .get("/api/ventas?inicio=2026-03-01&fin=2026-03-31")
+      .set(...auth(sesion));
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(Number(res.body[0].artesania.precioVenta)).toBe(1100);
+    expect(Number(res.body[0].montoCobrado)).toBe(950);
   });
 
   it("CA (caso de fallo): sin ventas en el rango, el sistema lo indica explícitamente", async () => {

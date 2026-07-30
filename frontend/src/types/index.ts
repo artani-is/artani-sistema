@@ -248,7 +248,8 @@ export interface Venta {
   idArtesania: string
   idConsignacion: string | null
   canal?: 'DIRECTA' | 'CONSIGNACION'
-  artesania?: Pick<Artesania, 'idArtesania' | 'nombre'>
+  /** `precioVenta` es el precio de lista de la pieza (HU-09), distinto de lo cobrado. */
+  artesania?: Pick<Artesania, 'idArtesania' | 'nombre' | 'precioVenta'>
   consignacion?: Consignacion | null
 }
 
