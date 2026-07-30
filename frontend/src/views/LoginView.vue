@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import AppLogo from '@/components/ui/AppLogo.vue'
 import TextileBand from '@/components/ui/TextileBand.vue'
@@ -16,6 +16,25 @@ const router = useRouter()
 const correo = ref('')
 const contrasena = ref('')
 const recordar = ref(true)
+
+/**
+ * Fotografía del taller para el panel de marca. Se resuelve con
+ * `import.meta.glob` y no con un `import` directo a propósito: mientras el
+ * archivo no exista, la compilación no falla y el panel conserva su marcador.
+ * Basta colocar la imagen en `src/assets/taller.jpg` —o .jpeg, .png, .webp—
+ * para que aparezca; Vite la procesa y la sirve con hash.
+ */
+const archivos = import.meta.glob<{ default: string }>(
+  '../assets/taller.{jpg,jpeg,png,webp}',
+  { eager: true },
+)
+const fotoTaller = Object.values(archivos)[0]?.default ?? ''
+
+const nombreTaller = computed(() => auth.artesano?.nombreTaller ?? 'Taller El Árbol del Hule')
+/** Con foto, el texto describe la imagen; sin ella, indica qué debe colocarse. */
+const pieDeFoto = computed(() =>
+  fotoTaller ? `Fotografía del ${nombreTaller.value}` : 'Foto: artesano o pieza del taller',
+)
 
 async function enviar(): Promise<void> {
   try {
@@ -38,7 +57,7 @@ async function enviar(): Promise<void> {
       <AppLogo size="md" on-dark />
       <div class="mt-16">
         <h1 class="m-0" :style="{ font: '400 46px/1.08 var(--font-serif)', color: 'var(--cream-50)' }">
-          {{ auth.artesano?.nombreTaller ?? 'Taller El Árbol del Hule' }}
+          {{ nombreTaller }}
         </h1>
         <p
           class="mt-4 max-w-[380px]"
@@ -48,7 +67,7 @@ async function enviar(): Promise<void> {
         </p>
       </div>
       <div class="mt-8 min-h-[220px] flex-1">
-        <PhotoSlot on-dark caption="Foto: artesano o pieza del taller" aspect="auto" class="h-full" />
+        <PhotoSlot :src="fotoTaller" on-dark :caption="pieDeFoto" aspect="auto" class="h-full" />
       </div>
       <div class="absolute inset-x-0 bottom-0">
         <TextileBand :height="12" :gap="4" />
