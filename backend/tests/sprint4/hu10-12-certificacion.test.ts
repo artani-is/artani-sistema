@@ -252,6 +252,22 @@ describe("HU-11 · Ensamblado de certificado PDF", () => {
     expect(fotoV.y - fotoA.y).toBeCloseTo(147.5, 1);
   });
 
+  it("CA HU-09: el certificado imprime el precio de venta final de la pieza", async () => {
+    const pieza = await piezaCertificable({ precio: 1850 });
+    const res = await api()
+      .post(`/api/artesanias/${pieza.idArtesania}/certificado`)
+      .set(...auth(sesion));
+
+    const pdf = readFileSync(
+      path.join(UPLOADS_DIR, "certificados", `${res.body.idCertificado}.pdf`),
+    );
+    const texto = textoDelPdf(pdf);
+
+    // El precio final (HU-09), no el sugerido por el costeo
+    expect(texto).toContain("PRECIO");
+    expect(texto).toContain("$1,850.00 MXN");
+  });
+
   it("RNF_010: los datos del PDF coinciden con lo almacenado en base de datos", async () => {
     const pieza = await piezaCertificable({ nombre: "Jarrón ceremonial" });
     const res = await api()
@@ -272,6 +288,9 @@ describe("HU-11 · Ensamblado de certificado PDF", () => {
     expect(texto).toContain(enBd.tecnica.nombre);
     expect(texto).toContain(enBd.categoria.nombre);
     expect(texto).toContain(enBd.artesano.nombres);
+    expect(texto).toContain(Number(enBd.precioVenta).toLocaleString("es-MX", {
+      minimumFractionDigits: 2,
+    }));
     expect(texto).toContain(res.body.idCertificado);
     expect(texto).toContain(`/verificar/${res.body.idCertificado}`);
   });
