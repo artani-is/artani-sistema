@@ -544,7 +544,7 @@ function formatearFecha(iso: string): string {
               </label>
             </div>
             <p class="mb-4 mt-0" :style="{ font: '400 var(--text-sm)/1.4 var(--font-sans)', color: 'var(--clay-500)' }">
-              PNG o JPG, máximo 5 MB. La foto principal aparecerá en el certificado de autenticidad.
+              PNG o JPG, máximo 8 MB. La foto principal aparecerá en el certificado de autenticidad.
             </p>
 
             <BaseAlert v-if="avisoFotos" tone="error" class="mb-4" @cerrar="avisoFotos = null">
