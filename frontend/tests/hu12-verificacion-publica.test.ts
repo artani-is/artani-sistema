@@ -92,7 +92,7 @@ describe('HU-12 · Verificación pública (vista del comprador)', () => {
     expect(wrapper.text()).not.toMatch(/verificaciones|bitácora|escaneos/i)
   })
 
-  it('RNF_011: sin conexión la vista informa el fallo, pero NO lo distingue de un código inválido', async () => {
+  it('RNF_011: sin conexión la vista lo informa como tal y NO como código inválido', async () => {
     apiMock.get.mockRejectedValue(
       new ApiError(0, 'No hay conexión con el servidor. Verifica tu conexión a internet'),
     )
@@ -100,16 +100,30 @@ describe('HU-12 · Verificación pública (vista del comprador)', () => {
     const wrapper = await montarVerificacion()
     await vi.waitFor(() => expect(wrapper.text()).not.toContain('Verificando certificado…'))
 
-    // La vista no queda en carga indefinida ni en blanco: sí hay retroalimentación
-    expect(wrapper.text().trim().length).toBeGreaterThan(0)
-    expect(wrapper.text()).toContain('Certificado inválido')
+    // El fallo de red se comunica como tal, con la vía de reintento
+    expect(wrapper.text()).toMatch(/sin conexión/i)
+    expect(wrapper.text()).toMatch(/reintentar/i)
 
-    // HALLAZGO: el `catch` de la vista descarta el mensaje del cliente HTTP y
-    // presenta el mismo estado que un código inexistente. Un problema de red se
-    // comunica como «La pieza podría no ser auténtica», lo que induce a error.
-    // El mensaje específico de conectividad sí lo produce la capa `api`
-    // (ver rnf-usabilidad-conectividad.test.ts) pero no llega a esta pantalla.
-    expect(wrapper.text()).not.toMatch(/conexión/i)
-    expect(wrapper.text()).toContain('podría')
+    // Y no se declara falsa la pieza, que es lo que exige el RNF_011
+    expect(wrapper.text()).not.toContain('Certificado inválido')
+    expect(wrapper.text()).not.toContain('podría no ser auténtica')
+  })
+
+  it('RNF_011: al reintentar con conexión restablecida se muestra la ficha', async () => {
+    apiMock.get
+      .mockRejectedValueOnce(
+        new ApiError(0, 'No hay conexión con el servidor. Verifica tu conexión a internet'),
+      )
+      .mockResolvedValueOnce(CERTIFICADO)
+
+    const wrapper = await montarVerificacion()
+    await vi.waitFor(() => expect(wrapper.text()).toMatch(/sin conexión/i))
+
+    const reintentar = wrapper.findAll('button').find((b) => /reintentar/i.test(b.text()))!
+    await reintentar.trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Jarrón ceremonial'))
+
+    expect(wrapper.text()).toContain('Certificado válido')
+    expect(wrapper.text()).not.toMatch(/sin conexión/i)
   })
 })
