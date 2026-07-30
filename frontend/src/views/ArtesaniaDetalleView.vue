@@ -94,7 +94,6 @@ async function emitirCertificado(): Promise<void> {
 const modal = ref<'venta' | 'consignacion' | null>(null)
 const monto = ref('')
 const idGaleria = ref('')
-const comision = ref('')
 const errorModal = ref('')
 const procesandoAccion = ref(false)
 const confirmarDevolucion = ref(false)
@@ -115,7 +114,6 @@ function abrirModalVenta(): void {
 
 function abrirModalConsignacion(): void {
   idGaleria.value = ''
-  comision.value = ''
   errorModal.value = ''
   modal.value = 'consignacion'
 }
@@ -147,15 +145,10 @@ async function confirmarConsignacion(): Promise<void> {
     errorModal.value = 'Elige la galería o intermediario receptor.'
     return
   }
-  if (comision.value && (Number(comision.value) < 0 || Number(comision.value) > 100)) {
-    errorModal.value = 'La comisión debe estar entre 0 y 100.'
-    return
-  }
   procesandoAccion.value = true
   try {
     const consignacion = await store.enviarConsignacion(idArtesania, {
       idGaleria: idGaleria.value,
-      ...(comision.value ? { porcentajeComision: comision.value } : {}),
     })
     modal.value = null
     await cargarPieza()
@@ -721,15 +714,6 @@ function formatearFecha(iso: string): string {
           :options="opcionesGaleria"
           :error="errorModal"
           @update:model-value="errorModal = ''"
-        />
-        <TextField
-          v-model="comision"
-          label="Comisión de la galería (%)"
-          type="number"
-          min="0"
-          step="any"
-          placeholder="Opcional"
-          help-text="Entre 0 y 100; base del ingreso neto."
         />
       </div>
       <template #footer>

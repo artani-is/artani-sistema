@@ -126,10 +126,12 @@ export const useArtesaniasStore = defineStore('artesanias', () => {
 
   // Sprint 5 — consignación y ventas (HU-13, HU-14)
 
-  function enviarConsignacion(
-    id: string,
-    datos: { idGaleria: string; porcentajeComision?: string },
-  ): Promise<Consignacion> {
+  /**
+   * La galería es el único dato que captura la interfaz (HU-13). La API acepta
+   * además `porcentajeComision`, pero ningún proceso del sistema lo consume, así
+   * que el formulario dejó de pedirlo y el cliente no lo envía.
+   */
+  function enviarConsignacion(id: string, datos: { idGaleria: string }): Promise<Consignacion> {
     return api.post<Consignacion>(`/artesanias/${id}/consignacion`, datos)
   }
 
