@@ -40,6 +40,8 @@ export interface Galeria {
   ciudad: string | null
   estado: string | null
   pais: string
+  /** HU-04: consignaciones registradas; con al menos una, la galería no se elimina. */
+  _count?: { consignaciones: number }
 }
 
 /** CAM-015: domicilio completo; todos los campos salvo el nombre son opcionales. */

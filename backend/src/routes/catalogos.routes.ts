@@ -79,15 +79,21 @@ catalogosRouter.use(
   "/galerias",
   crearCatalogoRouter({
     etiqueta: "la galería",
-    listar: () => prisma.galeria.findMany({ orderBy: { nombre: "asc" } }),
+    listar: () =>
+      prisma.galeria.findMany({
+        orderBy: { nombre: "asc" },
+        include: { _count: { select: { consignaciones: true } } },
+      }),
     crear: (data) => prisma.galeria.create({ data: parseGaleria(data) }),
     actualizar: (id, data) =>
       prisma.galeria.update({ where: { idGaleria: id }, data: parseGaleria(data) }),
     eliminar: async (id) => {
       await prisma.galeria.delete({ where: { idGaleria: id } });
     },
-    // Las consignaciones llegan en el Sprint 5; hoy no hay vínculos que bloqueen la baja
-    enUso: async () => false,
+    // HU-04: una galería con consignaciones registradas no puede darse de baja.
+    // El RESTRICT de la base de datos ya impedía el borrado, pero el error del
+    // driver no se traduce y la API respondía 500 en lugar del 409 explicativo.
+    enUso: async (id) => (await prisma.consignacion.count({ where: { idGaleria: id } })) > 0,
     parseBody: (body) => body,
   }),
 );

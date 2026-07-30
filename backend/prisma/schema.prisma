@@ -111,10 +111,10 @@ model CategoriaPieza {
   @@map("categoria_pieza")
 }
 
-/// solo nombre es obligatorio
+/// solo nombre es obligatorio; único como en los otros dos catálogos maestros (HU-02)
 model Galeria {
   idGaleria      String  @id @default(dbgenerated("gen_random_uuid()")) @map("id_galeria") @db.Uuid
-  nombre         String  @db.VarChar(150)
+  nombre         String  @unique @db.VarChar(150)
   nombreContacto String? @map("nombre_contacto") @db.VarChar(100)
   telefono       String? @db.VarChar(20)
   correo         String? @db.Citext
