@@ -24,6 +24,18 @@ export function rutaPdfPublica(idCertificado: string): string {
   return `/uploads/certificados/${idCertificado}.pdf`;
 }
 
+/** Importe en pesos mexicanos, con el mismo formato que usa la interfaz. */
+function fmtMoneda(valor: string): string {
+  return (
+    "$" +
+    Number(valor).toLocaleString("es-MX", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }) +
+    " MXN"
+  );
+}
+
 interface DatosCertificado {
   idCertificado: string;
   pieza: {
@@ -129,6 +141,8 @@ export async function generarArchivosCertificado(datos: DatosCertificado) {
     if (datos.artesano.nombreTaller) campo("Taller", datos.artesano.nombreTaller);
     campo("Técnica", datos.pieza.tecnica);
     campo("Categoría", datos.pieza.categoria);
+    // HU-09: el precio final —no el sugerido— es el que aparece en el certificado
+    campo("Precio", fmtMoneda(datos.pieza.precioVenta));
     campo(
       "Fecha de emisión",
       datos.fechaEmision.toLocaleDateString("es-MX", { dateStyle: "long" }),
