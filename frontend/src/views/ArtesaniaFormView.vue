@@ -205,7 +205,7 @@ async function guardar(): Promise<void> {
           />
         </label>
         <span :style="{ font: '400 var(--text-label)/1.4 var(--font-sans)', color: 'var(--clay-500)' }">
-          PNG o JPG · máx. 5 MB por archivo.
+          PNG o JPG · máx. 8 MB por archivo.
           {{ archivos.length > 0 ? `${archivos.length} archivo(s) seleccionado(s); se subirán al guardar.` : 'Se requiere al menos una foto para el certificado.' }}
         </span>
       </div>
