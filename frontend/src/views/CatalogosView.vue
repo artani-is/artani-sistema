@@ -195,7 +195,12 @@ const filas = computed<FilaCatalogo[]>(() => {
         usos: (c._count as { artesanias: number } | undefined)?.artesanias ?? 0,
       }))
     case 'galerias':
-      return catalogos.listas.galerias.map((g) => ({ ...g, id: g.idGaleria as string, usos: 0 }))
+      // HU-04: el conteo de consignaciones bloquea la baja igual que en los otros catálogos
+      return catalogos.listas.galerias.map((g) => ({
+        ...g,
+        id: g.idGaleria as string,
+        usos: (g._count as { consignaciones: number } | undefined)?.consignaciones ?? 0,
+      }))
     case 'proveedores':
       return proveedoresStore.proveedores.map((p) => ({
         ...p,

@@ -79,11 +79,7 @@ describe("HU-02 · Alta en catálogos maestros", () => {
     expect(duplicado.status).toBe(409);
   });
 
-  // DEFECTO CONOCIDO (Increment Sprint 1): el modelo GALERIA no declara UNIQUE
-  // sobre `nombre`, a diferencia de TECNICA_ARTESANAL y CATEGORIA_PIEZA. La
-  // prueba se marca como fallo esperado: documenta el incumplimiento y avisará
-  // en cuanto se corrija.
-  it.fails("CA: no se permite guardar una GALERÍA con nombre duplicado (409)", async () => {
+  it("CA: no se permite guardar una GALERÍA con nombre duplicado (409)", async () => {
     await api()
       .post("/api/catalogos/galerias")
       .set(...auth(sesion))
@@ -94,8 +90,8 @@ describe("HU-02 · Alta en catálogos maestros", () => {
       .set(...auth(sesion))
       .send({ nombre: "Galería Quetzalli" });
 
-    // Defecto conocido registrado en el Increment del Sprint 1: el modelo GALERIA
-    // no declara UNIQUE sobre `nombre`, por lo que el duplicado se acepta (201).
+    // La unicidad la impone la restricción de base de datos, igual que en
+    // técnicas y categorías, no una comprobación de la aplicación.
     expect(duplicado.status).toBe(409);
   });
 
@@ -148,8 +144,7 @@ describe("HU-03 · Edición de catálogos maestros", () => {
     expect(res.status).toBe(409);
   });
 
-  // DEFECTO CONOCIDO (Increment Sprint 1): misma ausencia de UNIQUE en GALERIA.
-  it.fails("CA: editar una GALERÍA hacia un nombre ya existente debe devolver 409", async () => {
+  it("CA: editar una GALERÍA hacia un nombre ya existente debe devolver 409", async () => {
     await prisma.galeria.create({ data: { nombre: "Galería Quetzalli" } });
     const otra = await prisma.galeria.create({ data: { nombre: "Casa Oaxaca" } });
 
@@ -158,7 +153,6 @@ describe("HU-03 · Edición de catálogos maestros", () => {
       .set(...auth(sesion))
       .send({ nombre: "Galería Quetzalli" });
 
-    // Mismo defecto conocido: sin UNIQUE en GALERIA.nombre la edición duplica.
     expect(res.status).toBe(409);
   });
 
@@ -230,11 +224,7 @@ describe("HU-04 · Eliminación de catálogos maestros", () => {
     expect(res.status).toBe(409);
   });
 
-  // DEFECTO CONOCIDO (Increment Sprint 1): `enUso` de galerías quedó fijado en
-  // `false` desde antes del Sprint 5. La integridad la salva el RESTRICT de la
-  // base de datos, pero el error del driver no se traduce y la API responde 500
-  // en lugar del 409 con mensaje explicativo que pide el criterio de aceptación.
-  it.fails("CA: bloquea la eliminación de una GALERÍA vinculada a una consignación activa", async () => {
+  it("CA: bloquea la eliminación de una GALERÍA vinculada a una consignación activa", async () => {
     const tecnica = await prisma.tecnicaArtesanal.create({ data: { nombre: "Barro negro" } });
     const categoria = await prisma.categoriaPieza.create({ data: { nombre: "Jarrón" } });
     const galeria = await prisma.galeria.create({ data: { nombre: "Galería Quetzalli" } });
@@ -254,8 +244,55 @@ describe("HU-04 · Eliminación de catálogos maestros", () => {
       .delete(`/api/catalogos/galerias/${galeria.idGaleria}`)
       .set(...auth(sesion));
 
-    // Defecto conocido registrado en el Increment del Sprint 1: la comprobación
-    // de uso de galerías quedó fijada en `false` desde antes del Sprint 5.
     expect(res.status).toBe(409);
+    // CA: el criterio exige explicar por qué no se puede eliminar, no un error crudo
+    expect(res.body.error).toMatch(/no se puede eliminar/i);
+    expect(res.body.error).toMatch(/galería/i);
+
+    // La galería sigue existiendo: la baja no se ejecutó a medias
+    expect(await prisma.galeria.count({ where: { idGaleria: galeria.idGaleria } })).toBe(1);
+  });
+
+  it("caso de éxito: una GALERÍA sin consignaciones sí puede eliminarse (204)", async () => {
+    const galeria = await prisma.galeria.create({ data: { nombre: "Casa Oaxaca" } });
+
+    const res = await api()
+      .delete(`/api/catalogos/galerias/${galeria.idGaleria}`)
+      .set(...auth(sesion));
+
+    expect(res.status).toBe(204);
+    expect(await prisma.galeria.count({ where: { idGaleria: galeria.idGaleria } })).toBe(0);
+  });
+
+  it("el listado de galerías informa cuántas consignaciones tiene cada una", async () => {
+    const tecnica = await prisma.tecnicaArtesanal.create({ data: { nombre: "Barro negro" } });
+    const categoria = await prisma.categoriaPieza.create({ data: { nombre: "Jarrón" } });
+    const usada = await prisma.galeria.create({ data: { nombre: "Galería Quetzalli" } });
+    await prisma.galeria.create({ data: { nombre: "Casa Oaxaca" } });
+    const pieza = await prisma.artesania.create({
+      data: {
+        nombre: "Jarrón ceremonial",
+        idArtesano: sesion.idArtesano,
+        idTecnica: tecnica.idTecnica,
+        idCategoria: categoria.idCategoria,
+      },
+    });
+    await prisma.consignacion.create({
+      data: { idArtesania: pieza.idArtesania, idGaleria: usada.idGaleria },
+    });
+
+    const res = await api()
+      .get("/api/catalogos/galerias")
+      .set(...auth(sesion));
+
+    // La interfaz necesita el conteo para deshabilitar la baja antes de intentarla
+    const porNombre = Object.fromEntries(
+      (res.body as { nombre: string; _count: { consignaciones: number } }[]).map((g) => [
+        g.nombre,
+        g._count.consignaciones,
+      ]),
+    );
+    expect(porNombre["Galería Quetzalli"]).toBe(1);
+    expect(porNombre["Casa Oaxaca"]).toBe(0);
   });
 });
